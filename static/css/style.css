@@ -1,0 +1,50 @@
+/* basic styles for attendance manager */
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* basic card styles */
+.card {
+    margin-bottom: 20px;
+}
+
+.card-header {
+    background-color: #007bff;
+    color: white;
+}
+
+/* basic button styles */
+.btn {
+    margin: 5px;
+}
+
+/* webcam styles */
+.webcam-container {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+#webcam {
+    width: 100%;
+    height: auto;
+    border: 2px solid #ddd;
+}
+
+/* loading spinner */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

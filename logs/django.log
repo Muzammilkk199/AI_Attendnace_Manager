@@ -1,0 +1,451 @@
+INFO 2025-09-09 19:53:36,420 autoreload 4248 13272 Watching for file changes with StatReloader
+INFO 2025-09-09 19:53:42,009 autoreload 4248 13272 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager_Models\admin.py changed, reloading.
+INFO 2025-09-09 19:53:42,961 autoreload 15796 15864 Watching for file changes with StatReloader
+ERROR 2025-09-09 19:53:52,904 log 15796 15504 Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 244, in _get_session
+    return self._session_cache
+           ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'SessionStore' object has no attribute '_session_cache'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such table: django_session
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\utils\deprecation.py", line 122, in __call__
+    response = self.process_response(request, response)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\middleware.py", line 48, in process_response
+    if request.session.get_expire_at_browser_close():
+       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 403, in get_expire_at_browser_close
+    if (expiry := self.get("_session_expiry")) is None:
+                  ~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 74, in get
+    return self._session.get(key, default)
+           ^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 249, in _get_session
+    self._session_cache = self.load()
+                          ~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\db.py", line 55, in load
+    s = self._get_session_from_db()
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\db.py", line 34, in _get_session_from_db
+    return self.model.objects.get(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        session_key=self.session_key, expire_date__gt=timezone.now()
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 629, in get
+    num = len(clone)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 366, in __len__
+    self._fetch_all()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 1949, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+        chunked_fetch=self.chunked_fetch, chunk_size=self.chunk_size
+    )
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\sql\compiler.py", line 1623, in execute_sql
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+django.db.utils.OperationalError: no such table: django_session
+ERROR 2025-09-09 19:53:52,919 basehttp 15796 15504 "GET / HTTP/1.1" 500 161979
+ERROR 2025-09-09 19:53:53,151 log 15796 8540 Internal Server Error: /favicon.ico
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 244, in _get_session
+    return self._session_cache
+           ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'SessionStore' object has no attribute '_session_cache'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such table: django_session
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\utils\deprecation.py", line 122, in __call__
+    response = self.process_response(request, response)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\middleware.py", line 48, in process_response
+    if request.session.get_expire_at_browser_close():
+       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 403, in get_expire_at_browser_close
+    if (expiry := self.get("_session_expiry")) is None:
+                  ~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 74, in get
+    return self._session.get(key, default)
+           ^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 249, in _get_session
+    self._session_cache = self.load()
+                          ~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\db.py", line 55, in load
+    s = self._get_session_from_db()
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\db.py", line 34, in _get_session_from_db
+    return self.model.objects.get(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        session_key=self.session_key, expire_date__gt=timezone.now()
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 629, in get
+    num = len(clone)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 366, in __len__
+    self._fetch_all()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 1949, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+        chunked_fetch=self.chunked_fetch, chunk_size=self.chunk_size
+    )
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\sql\compiler.py", line 1623, in execute_sql
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+django.db.utils.OperationalError: no such table: django_session
+ERROR 2025-09-09 19:53:53,157 basehttp 15796 8540 "GET /favicon.ico HTTP/1.1" 500 161792
+INFO 2025-09-09 19:54:35,003 autoreload 15796 15864 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager_Models\models.py changed, reloading.
+INFO 2025-09-09 19:54:36,053 autoreload 13748 16020 Watching for file changes with StatReloader
+INFO 2025-09-09 19:54:38,521 autoreload 13748 16020 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\urls.py changed, reloading.
+INFO 2025-09-09 19:54:39,343 autoreload 14604 15524 Watching for file changes with StatReloader
+INFO 2025-09-09 19:54:41,709 autoreload 14604 15524 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\settings.py changed, reloading.
+INFO 2025-09-09 19:54:42,670 autoreload 16132 14656 Watching for file changes with StatReloader
+INFO 2025-09-09 19:54:45,086 autoreload 16132 14656 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager_Models\admin.py changed, reloading.
+INFO 2025-09-09 19:54:46,434 autoreload 15900 14600 Watching for file changes with StatReloader
+ERROR 2025-09-09 19:54:56,931 log 15900 5200 Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 244, in _get_session
+    return self._session_cache
+           ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'SessionStore' object has no attribute '_session_cache'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such table: django_session
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\utils\deprecation.py", line 122, in __call__
+    response = self.process_response(request, response)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\middleware.py", line 48, in process_response
+    if request.session.get_expire_at_browser_close():
+       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 403, in get_expire_at_browser_close
+    if (expiry := self.get("_session_expiry")) is None:
+                  ~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 74, in get
+    return self._session.get(key, default)
+           ^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 249, in _get_session
+    self._session_cache = self.load()
+                          ~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\db.py", line 55, in load
+    s = self._get_session_from_db()
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\db.py", line 34, in _get_session_from_db
+    return self.model.objects.get(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        session_key=self.session_key, expire_date__gt=timezone.now()
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 629, in get
+    num = len(clone)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 366, in __len__
+    self._fetch_all()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 1949, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+        chunked_fetch=self.chunked_fetch, chunk_size=self.chunk_size
+    )
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\sql\compiler.py", line 1623, in execute_sql
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+django.db.utils.OperationalError: no such table: django_session
+ERROR 2025-09-09 19:54:56,946 basehttp 15900 5200 "GET / HTTP/1.1" 500 162116
+ERROR 2025-09-09 19:54:57,060 log 15900 14668 Internal Server Error: /favicon.ico
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 244, in _get_session
+    return self._session_cache
+           ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'SessionStore' object has no attribute '_session_cache'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such table: django_session
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\utils\deprecation.py", line 122, in __call__
+    response = self.process_response(request, response)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\middleware.py", line 48, in process_response
+    if request.session.get_expire_at_browser_close():
+       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 403, in get_expire_at_browser_close
+    if (expiry := self.get("_session_expiry")) is None:
+                  ~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 74, in get
+    return self._session.get(key, default)
+           ^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\base.py", line 249, in _get_session
+    self._session_cache = self.load()
+                          ~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\db.py", line 55, in load
+    s = self._get_session_from_db()
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\contrib\sessions\backends\db.py", line 34, in _get_session_from_db
+    return self.model.objects.get(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        session_key=self.session_key, expire_date__gt=timezone.now()
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 629, in get
+    num = len(clone)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 366, in __len__
+    self._fetch_all()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 1949, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+        chunked_fetch=self.chunked_fetch, chunk_size=self.chunk_size
+    )
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\models\sql\compiler.py", line 1623, in execute_sql
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\AI_Attendance_Manager\env\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+django.db.utils.OperationalError: no such table: django_session
+ERROR 2025-09-09 19:54:57,068 basehttp 15900 14668 "GET /favicon.ico HTTP/1.1" 500 161792
+INFO 2025-09-09 19:55:30,360 autoreload 5872 15540 Watching for file changes with StatReloader
+INFO 2025-09-09 19:55:31,159 basehttp 5872 4500 "GET / HTTP/1.1" 200 12385
+INFO 2025-09-09 19:55:31,250 basehttp 5872 3472 "GET /static/images/logo.svg HTTP/1.1" 200 636
+INFO 2025-09-09 19:55:31,250 basehttp 5872 4500 "GET /static/css/style.css HTTP/1.1" 200 7734
+INFO 2025-09-09 19:55:31,253 basehttp 5872 3472 "GET /static/js/webcam.js HTTP/1.1" 200 15041
+INFO 2025-09-09 19:55:31,692 basehttp 5872 3472 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+WARNING 2025-09-09 19:55:33,934 log 5872 5876 Not Found: /favicon.ico
+WARNING 2025-09-09 19:55:33,934 basehttp 5872 5876 "GET /favicon.ico HTTP/1.1" 404 4512
+INFO 2025-09-09 19:55:35,859 basehttp 5872 5876 "GET /attendance/ HTTP/1.1" 200 10877
+INFO 2025-09-09 19:56:58,794 basehttp 5872 2408 "GET / HTTP/1.1" 200 12385
+INFO 2025-09-09 19:56:58,823 basehttp 5872 2408 "GET /static/css/style.css HTTP/1.1" 304 0
+INFO 2025-09-09 19:56:58,826 basehttp 5872 2408 "GET /static/images/logo.svg HTTP/1.1" 304 0
+INFO 2025-09-09 19:56:58,829 basehttp 5872 2408 "GET /static/js/webcam.js HTTP/1.1" 304 0
+INFO 2025-09-09 19:56:58,881 basehttp 5872 2408 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 19:57:29,377 basehttp 5872 9624 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 19:57:59,234 basehttp 5872 14664 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 19:58:10,559 basehttp 5872 14664 "GET /add-student/ HTTP/1.1" 200 11627
+INFO 2025-09-09 19:58:10,580 basehttp 5872 360 "GET /static/images/logo.svg HTTP/1.1" 304 0
+INFO 2025-09-09 19:58:10,581 basehttp 5872 14664 "GET /static/css/style.css HTTP/1.1" 304 0
+INFO 2025-09-09 19:58:10,585 basehttp 5872 360 "GET /static/js/webcam.js HTTP/1.1" 304 0
+INFO 2025-09-09 19:58:22,415 basehttp 5872 360 "GET /report/ HTTP/1.1" 200 16583
+INFO 2025-09-09 19:58:54,140 basehttp 5872 360 "GET /attendance/ HTTP/1.1" 200 10877
+INFO 2025-09-09 19:59:12,398 basehttp 5872 360 "GET /add-student/ HTTP/1.1" 200 11627
+INFO 2025-09-09 19:59:12,418 basehttp 5872 360 "GET /static/images/logo.svg HTTP/1.1" 304 0
+INFO 2025-09-09 19:59:12,421 basehttp 5872 360 "GET /static/js/webcam.js HTTP/1.1" 304 0
+INFO 2025-09-09 19:59:20,958 basehttp 5872 360 "GET / HTTP/1.1" 200 12385
+INFO 2025-09-09 19:59:20,978 basehttp 5872 360 "GET /static/css/style.css HTTP/1.1" 304 0
+INFO 2025-09-09 19:59:21,016 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 19:59:28,760 basehttp 5872 360 "GET / HTTP/1.1" 200 12385
+INFO 2025-09-09 19:59:28,798 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 19:59:58,822 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:00:28,866 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:00:58,849 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:01:28,828 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:01:58,862 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:02:28,837 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:02:58,855 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:03:28,851 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:03:58,843 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:04:28,876 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:04:58,854 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:05:29,068 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:05:59,065 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:06:45,040 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:07:45,053 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:08:45,041 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:09:28,023 basehttp 5872 360 "GET /api/dashboard-data/ HTTP/1.1" 200 121
+INFO 2025-09-09 20:09:47,623 basehttp 5872 360 "GET /report/ HTTP/1.1" 200 16583
+INFO 2025-09-09 20:09:47,649 basehttp 5872 360 "GET /static/css/style.css HTTP/1.1" 304 0
+INFO 2025-09-09 20:09:47,652 basehttp 5872 360 "GET /static/images/logo.svg HTTP/1.1" 304 0
+INFO 2025-09-09 20:09:47,655 basehttp 5872 360 "GET /static/js/webcam.js HTTP/1.1" 304 0
+INFO 2025-09-09 20:10:08,593 basehttp 5872 360 "GET /attendance/ HTTP/1.1" 200 10877
+INFO 2025-09-09 20:11:04,786 autoreload 18412 15568 Watching for file changes with StatReloader
+INFO 2025-09-09 20:11:50,097 autoreload 18412 15568 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\settings.py changed, reloading.
+INFO 2025-09-09 20:11:50,820 autoreload 12444 2664 Watching for file changes with StatReloader
+INFO 2025-09-09 20:13:03,869 autoreload 12444 2664 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\urls.py changed, reloading.
+INFO 2025-09-09 20:13:05,042 autoreload 5836 17192 Watching for file changes with StatReloader
+INFO 2025-09-09 20:13:28,050 autoreload 5836 17192 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\settings.py changed, reloading.
+INFO 2025-09-09 20:13:30,731 autoreload 12240 2144 Watching for file changes with StatReloader
+INFO 2025-09-09 20:13:33,231 autoreload 12240 2144 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\settings.py changed, reloading.
+INFO 2025-09-09 20:13:36,590 autoreload 8376 6180 Watching for file changes with StatReloader
+INFO 2025-09-09 20:13:38,579 autoreload 8376 6180 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\controller.py changed, reloading.
+INFO 2025-09-09 20:13:39,771 autoreload 5276 12120 Watching for file changes with StatReloader
+INFO 2025-09-09 20:13:48,493 autoreload 5276 12120 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\controller.py changed, reloading.
+INFO 2025-09-09 20:13:49,624 autoreload 9144 17244 Watching for file changes with StatReloader
+INFO 2025-09-09 20:14:03,339 autoreload 9144 17244 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\controller.py changed, reloading.
+INFO 2025-09-09 20:14:05,870 autoreload 18148 10884 Watching for file changes with StatReloader
+INFO 2025-09-09 20:14:26,415 autoreload 18148 10884 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\controller.py changed, reloading.
+INFO 2025-09-09 20:14:27,606 autoreload 11740 6784 Watching for file changes with StatReloader
+INFO 2025-09-09 20:14:34,273 autoreload 11740 6784 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\controller.py changed, reloading.
+INFO 2025-09-09 20:14:35,537 autoreload 14308 7860 Watching for file changes with StatReloader
+INFO 2025-09-09 20:14:50,419 autoreload 14308 7860 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\controller.py changed, reloading.
+INFO 2025-09-09 20:14:51,962 autoreload 12204 16848 Watching for file changes with StatReloader
+INFO 2025-09-09 20:15:24,548 autoreload 12204 16848 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\controller.py changed, reloading.
+INFO 2025-09-09 20:15:26,075 autoreload 16716 18092 Watching for file changes with StatReloader
+INFO 2025-09-09 20:15:44,237 autoreload 16716 18092 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager_Models\models.py changed, reloading.
+INFO 2025-09-09 20:15:45,598 autoreload 6608 17392 Watching for file changes with StatReloader
+INFO 2025-09-09 20:16:02,698 autoreload 6608 17392 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\controller.py changed, reloading.
+INFO 2025-09-09 20:16:04,467 autoreload 16488 17568 Watching for file changes with StatReloader
+INFO 2025-09-09 20:16:07,363 autoreload 16488 17568 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager_Models\models.py changed, reloading.
+INFO 2025-09-09 20:16:09,146 autoreload 9068 16172 Watching for file changes with StatReloader
+INFO 2025-09-09 20:16:22,062 autoreload 9068 16172 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager_Models\admin.py changed, reloading.
+INFO 2025-09-09 20:16:23,138 autoreload 15872 17444 Watching for file changes with StatReloader
+INFO 2025-09-09 20:16:32,096 autoreload 15872 17444 C:\AI_Attendance_Manager\Ai_Attendance_Manager\Ai_Attendance_Manager\settings.py changed, reloading.
