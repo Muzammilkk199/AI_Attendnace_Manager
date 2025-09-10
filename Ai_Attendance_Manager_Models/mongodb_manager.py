@@ -16,22 +16,44 @@ class MongoDBManager:
     
     def __init__(self, collection_name: str):
         self.collection_name = collection_name
-        self.client = MongoClient(settings.MONGODB_URI)
-        self.db = self.client[settings.MONGODB_DB]
-        self.collection = self.db[collection_name]
+        self.client = None
+        self.db = None
+        self.collection = None
+        self.connected = False
+        
+        try:
+            self.client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=5000)
+            self.db = self.client[settings.MONGODB_DB]
+            self.collection = self.db[collection_name]
+            # Test connection
+            self.client.admin.command('ping')
+            self.connected = True
+            print(f"MongoDB connection successful for collection: {collection_name}")
+        except Exception as e:
+            print(f"MongoDB connection failed for collection {collection_name}: {e}")
+            print("Continuing without MongoDB - data will be saved to SQLite only")
+            self.connected = False
     
     def create(self, **kwargs):
         """Create a new document in MongoDB"""
-        # Convert datetime objects to MongoDB format
-        for key, value in kwargs.items():
-            if isinstance(value, datetime):
-                kwargs[key] = value
-        
-        # Add created_at timestamp
-        kwargs['created_at'] = datetime.now()
-        
-        result = self.collection.insert_one(kwargs)
-        return self.get_by_id(result.inserted_id)
+        if not self.connected:
+            print(f"MongoDB not connected - skipping create operation for {self.collection_name}")
+            return None
+            
+        try:
+            # Convert datetime objects to MongoDB format
+            for key, value in kwargs.items():
+                if isinstance(value, datetime):
+                    kwargs[key] = value
+            
+            # Add created_at timestamp
+            kwargs['created_at'] = datetime.now()
+            
+            result = self.collection.insert_one(kwargs)
+            return self.get_by_id(result.inserted_id)
+        except Exception as e:
+            print(f"Error creating document in MongoDB: {e}")
+            return None
     
     def get_by_id(self, doc_id):
         """Get document by MongoDB ObjectId"""

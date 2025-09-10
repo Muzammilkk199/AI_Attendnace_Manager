@@ -54,7 +54,7 @@ WSGI_APPLICATION = 'Ai_Attendance_Manager.wsgi.application'
 import pymongo
 from pymongo import MongoClient
 
-MONGODB_URI = 'mongodb://powerbots446_db_user:BZtk3Fw30h75Ykg1@cluster0.hrry1vq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'
+MONGODB_URI = 'mongodb+srv://powerbots446_db_user:BZtk3Fw30h75Ykg1@cluster0.hrry1vq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'
 MONGODB_DB = 'attendance_ai'
 
 try:

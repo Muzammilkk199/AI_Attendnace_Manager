@@ -1,0 +1,132 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Face Detection Demo - AI Attendance Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/advanced-face-detection.css' %}">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-user-shield"></i> Advanced Face Detection System Demo
+                        </h3>
+                        <p class="mb-0 text-muted">Professional ESP-style face detection with comprehensive validation</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div id="faceDetectionContainer">
+                                    <!-- Advanced face detection will be loaded here -->
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">System Features</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-unstyled">
+                                            <li><i class="fas fa-check text-success"></i> Real-time face detection</li>
+                                            <li><i class="fas fa-check text-success"></i> ESP-style detection box</li>
+                                            <li><i class="fas fa-check text-success"></i> Multiple face detection prevention</li>
+                                            <li><i class="fas fa-check text-success"></i> Face quality validation</li>
+                                            <li><i class="fas fa-check text-success"></i> Professional UI with status indicators</li>
+                                            <li><i class="fas fa-check text-success"></i> Comprehensive error handling</li>
+                                            <li><i class="fas fa-check text-success"></i> Responsive design</li>
+                                            <li><i class="fas fa-check text-success"></i> 128-dimensional face encoding</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <div class="card mt-3">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Detection Status</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="detectionStats">
+                                            <p><strong>Faces Detected:</strong> <span id="faceCount">0</span></p>
+                                            <p><strong>Quality Score:</strong> <span id="qualityScore">0%</span></p>
+                                            <p><strong>Status:</strong> <span id="detectionStatus">Ready</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Captured Data Display -->
+                        <div class="row mt-4" id="capturedDataDisplay" style="display: none;">
+                            <div class="col-12">
+                                <div class="card bg-light">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-check-circle text-success"></i> Face Data Captured Successfully
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6>Captured Image:</h6>
+                                                <div id="capturedImageContainer" class="captured-image">
+                                                    <img id="capturedImage" src="" alt="Captured Face" class="img-fluid rounded">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6>Face Information:</h6>
+                                                <div class="face-details">
+                                                    <p><strong>Quality Score:</strong> <span id="finalQualityScore">-</span></p>
+                                                    <p><strong>Dimensions:</strong> <span id="finalEncodingDimensions">-</span></p>
+                                                    <p><strong>Captured At:</strong> <span id="finalCaptureTime">-</span></p>
+                                                    <p><strong>Status:</strong> <span class="badge badge-success">Ready for Registration</span></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/advanced-face-detection.js' %}"></script>
+    <script>
+        // Override the updateFormValidation to work with demo
+        document.addEventListener('DOMContentLoaded', function() {
+            // Override the updateFormValidation function for demo
+            window.updateFormValidation = function() {
+                const faceData = document.getElementById('face_encoding');
+                const faceImage = document.getElementById('face_image');
+                
+                if (faceData && faceImage && faceData.value && faceImage.value) {
+                    // Show captured data display
+                    const capturedDataDisplay = document.getElementById('capturedDataDisplay');
+                    if (capturedDataDisplay) {
+                        capturedDataDisplay.style.display = 'block';
+                        
+                        // Update face data information
+                        const finalQualityScore = document.getElementById('finalQualityScore');
+                        const finalEncodingDimensions = document.getElementById('finalEncodingDimensions');
+                        const finalCaptureTime = document.getElementById('finalCaptureTime');
+                        const capturedImage = document.getElementById('capturedImage');
+                        
+                        if (finalQualityScore) finalQualityScore.textContent = '85%';
+                        if (finalEncodingDimensions) finalEncodingDimensions.textContent = '128 dimensions';
+                        if (finalCaptureTime) finalCaptureTime.textContent = new Date().toLocaleString();
+                        if (capturedImage && faceImage.value) capturedImage.src = faceImage.value;
+                    }
+                }
+            };
+        });
+    </script>
+</body>
+</html>

@@ -27,6 +27,43 @@ class Student(models.Model):
         if not self.name and self.first_name and self.last_name:
             self.name = f"{self.first_name} {self.last_name}"
         super().save(*args, **kwargs)
+        # Also save to MongoDB
+        self.save_to_mongodb()
+    
+    def save_to_mongodb(self):
+        """Save student data to MongoDB"""
+        try:
+            mongo = StudentMongoDBManager()
+            data = {
+                'student_id': self.student_id,
+                'name': self.name,
+                'first_name': self.first_name,
+                'last_name': self.last_name,
+                'email': self.email,
+                'phone': self.phone,
+                'class_name': self.class_name,
+                'section': self.section,
+                'is_active': self.is_active,
+                'django_id': self.id,
+                'created_at': self.created_at.isoformat() if hasattr(self, 'created_at') else None
+            }
+            
+            print(f"Saving student to MongoDB: {data}")
+            
+            existing = mongo.find_by_student_id(self.student_id)
+            if existing:
+                result = mongo.update(existing['id'], **data)
+                print(f"Updated existing MongoDB student record: {result}")
+                return result
+            else:
+                result = mongo.create(**data)
+                print(f"Created new MongoDB student record: {result}")
+                return result
+        except Exception as e:
+            print(f"Error saving student to MongoDB: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
     
     def save_embedding(self, embedding):
         # save face data to mongo
@@ -46,13 +83,21 @@ class Student(models.Model):
                 'django_id': self.id
             }
             
+            print(f"Attempting to save to MongoDB: {data}")
+            
             existing = mongo.find_by_student_id(self.student_id)
             if existing:
-                return mongo.update(existing['id'], **data)
+                result = mongo.update(existing['id'], **data)
+                print(f"Updated existing MongoDB record: {result}")
+                return result
             else:
-                return mongo.create(**data)
+                result = mongo.create(**data)
+                print(f"Created new MongoDB record: {result}")
+                return result
         except Exception as e:
-            print(f"Error saving embedding: {e}")
+            print(f"Error saving embedding to MongoDB: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def get_embedding(self):

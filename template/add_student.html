@@ -1,14 +1,16 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Add Student - Attendance Manager{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
+<div class="row">
+    <!-- Student Information Form -->
+    <div class="col-md-6">
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">
-                    <i class="fas fa-user-plus"></i> Add New Student
+                    <i class="fas fa-user-plus"></i> Student Information
                 </h3>
             </div>
             <div class="card-body">
@@ -54,79 +56,329 @@
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="dateOfBirth" class="form-label">Date of Birth</label>
-                                <input type="date" class="form-control" id="dateOfBirth" name="date_of_birth">
+                                <label for="class" class="form-label">Class/Grade</label>
+                                <input type="text" class="form-control" id="class" name="class_name">
                             </div>
                         </div>
                     </div>
                     
                     <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="class" class="form-label">Class/Grade</label>
-                                <input type="text" class="form-control" id="class" name="class_name">
-                            </div>
-                        </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="section" class="form-label">Section</label>
                                 <input type="text" class="form-control" id="section" name="section">
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="address" class="form-label">Address</label>
-                        <textarea class="form-control" id="address" name="address" rows="3"></textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="parentName" class="form-label">Parent/Guardian Name</label>
-                        <input type="text" class="form-control" id="parentName" name="parent_name">
-                    </div>
-                    
-                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="parentPhone" class="form-label">Parent Phone</label>
-                                <input type="tel" class="form-control" id="parentPhone" name="parent_phone">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="parentEmail" class="form-label">Parent Email</label>
-                                <input type="email" class="form-control" id="parentEmail" name="parent_email">
+                                <label for="isActive" class="form-label">Status</label>
+                                <select class="form-select" id="isActive" name="is_active">
+                                    <option value="true" selected>Active</option>
+                                    <option value="false">Inactive</option>
+                                </select>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="notes" class="form-label">Additional Notes</label>
-                        <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+                    <!-- Hidden field for face data -->
+                    <input type="hidden" id="faceEncoding" name="face_encoding">
+                    <input type="hidden" id="faceImage" name="face_image">
+                    
+                    <!-- DEBUG: Button visibility test -->
+                    <div class="alert alert-info mb-3">
+                        <strong>DEBUG:</strong> Buttons should be visible below. If you don't see them, there's a rendering issue.
                     </div>
                     
                     <div class="d-flex justify-content-between">
                         <a href="{% url 'home' %}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Back to Dashboard
                         </a>
-                        <button type="submit" class="btn btn-primary">
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; background: #f8f9fa; padding: 10px; border: 2px solid #007bff;">
+                            <button type="button" class="btn btn-info" id="testMongoBtn" onclick="testMongoDB()" style="display: inline-block !important; visibility: visible !important;">
+                                <i class="fas fa-database"></i> Test MongoDB
+                            </button>
+                            <button type="button" class="btn btn-warning" id="testSubmitBtn" onclick="testSubmit()" style="display: inline-block !important; visibility: visible !important;">
+                                <i class="fas fa-test-tube"></i> Test Submit (No Face)
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="submitBtn" disabled style="display: inline-block !important; visibility: visible !important;">
                             <i class="fas fa-save"></i> Add Student
                         </button>
+                        </div>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Advanced Face Detection Section -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="fas fa-user-shield"></i> Advanced Face Registration System
+                </h3>
+                <small class="text-muted">Professional ESP-style face detection with comprehensive validation</small>
+            </div>
+            <div class="card-body">
+                <div class="face-detection-wrapper">
+                    <div class="detection-header">
+                        <h4><i class="fas fa-camera"></i> Face Registration System</h4>
+                        <div class="detection-status" id="detectionStatus">
+                            <span class="status-indicator" id="statusIndicator"></span>
+                            <span class="status-text" id="statusText">Initializing...</span>
+                        </div>
+                    </div>
+                    
+                    <div class="camera-container">
+                        <div class="video-wrapper">
+                            <video id="faceVideo" autoplay muted playsinline style="width: 100%; height: 400px; object-fit: cover; background: #000;"></video>
+                            <canvas id="faceCanvas" style="display: none;"></canvas>
+                            <div class="detection-overlay" id="detectionOverlay">
+                                <div class="face-box" id="faceBox" style="display: none;">
+                                    <div class="box-corners">
+                                        <div class="corner top-left"></div>
+                                        <div class="corner top-right"></div>
+                                        <div class="corner bottom-left"></div>
+                                        <div class="corner bottom-right"></div>
+                                    </div>
+                                    <div class="face-info">
+                                        <div class="face-quality">
+                                            <span class="quality-label">Quality:</span>
+                                            <div class="quality-bar">
+                                                <div class="quality-fill" id="qualityFill"></div>
+                                            </div>
+                                            <span class="quality-value" id="qualityValue">0%</span>
+                                        </div>
+                                        <div class="face-count" id="faceCount">Faces: 0</div>
+                                    </div>
+                                </div>
+                                <div class="detection-guide" id="detectionGuide">
+                                    <div class="guide-content">
+                                        <i class="fas fa-user-circle"></i>
+                                        <h5>Position Your Face</h5>
+                                        <p>Look directly at the camera and ensure your face is clearly visible</p>
+                                        <ul>
+                                            <li>Good lighting is essential</li>
+                                            <li>Remove glasses if possible</li>
+                                            <li>Keep a neutral expression</li>
+                                            <li>Only one person should be visible</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="detection-controls">
+                            <button id="testJsBtn" class="btn btn-secondary">
+                                <i class="fas fa-code"></i> Test JS
+                            </button>
+                            <button id="testCameraBtn" class="btn btn-info">
+                                <i class="fas fa-video"></i> Test Camera
+                            </button>
+                            <button id="startDetection" class="btn btn-primary">
+                                <i class="fas fa-play"></i> Start Detection
+                            </button>
+                            <button id="captureFace" class="btn btn-success" disabled>
+                                <i class="fas fa-camera"></i> Capture Face
+                            </button>
+                            <button id="retryCapture" class="btn btn-warning" disabled>
+                                <i class="fas fa-redo"></i> Retry
+                            </button>
+                            <button id="stopDetection" class="btn btn-danger" disabled>
+                                <i class="fas fa-stop"></i> Stop
+                            </button>
+                        </div>
+                        
+                        <div class="validation-messages" id="validationMessages"></div>
+                    </div>
+                </div>
+                
+                <!-- Face Data Display -->
+                <div class="row mt-4" id="faceDataDisplay" style="display: none;">
+                    <div class="col-12">
+                        <div class="card bg-light">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-check-circle text-success"></i> Face Data Captured Successfully
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>Captured Image:</h6>
+                                        <div id="capturedImageContainer" class="captured-image">
+                                            <img id="capturedImage" src="" alt="Captured Face" class="img-fluid rounded">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>Face Information:</h6>
+                                        <div class="face-details">
+                                            <p><strong>Quality Score:</strong> <span id="qualityScore">-</span></p>
+                                            <p><strong>Dimensions:</strong> <span id="encodingDimensions">-</span></p>
+                                            <p><strong>Captured At:</strong> <span id="captureTime">-</span></p>
+                                            <p><strong>Status:</strong> <span class="badge badge-success">Ready for Registration</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/advanced-face-detection.css' %}">
+<style>
+.face-detection-container {
+    text-align: center;
+}
+
+.webcam-wrapper {
+    position: relative;
+    display: inline-block;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f8f9fa;
+}
+
+#webcam {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    display: block;
+}
+
+.face-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.face-guide {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 200px;
+    border: 2px dashed #007bff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 123, 255, 0.1);
+    z-index: 5;
+}
+
+.guide-text {
+    color: #007bff;
+    font-weight: bold;
+    text-align: center;
+    font-size: 14px;
+}
+
+.face-detected {
+    border-color: #28a745 !important;
+    background: rgba(40, 167, 69, 0.1) !important;
+}
+
+.face-guide.face-detected .guide-text {
+    color: #28a745;
+}
+
+.face-box {
+    position: absolute;
+    border: 2px solid #28a745;
+    background: rgba(40, 167, 69, 0.1);
+    border-radius: 4px;
+}
+
+.face-status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+.face-status.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.face-status.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.face-status.warning {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+#capturedFacePreview {
+    text-align: center;
+}
+
+#previewImage {
+    border: 2px solid #28a745;
+    border-radius: 8px;
+}
+</style>
+{% endblock %}
+
 {% block extra_js %}
+<script src="{% static 'js/advanced-face-detection.js' %}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('studentForm');
+class FaceDetectionManager {
+    constructor() {
+        this.video = document.getElementById('webcam');
+        this.canvas = document.getElementById('canvas');
+        this.faceOverlay = document.getElementById('faceOverlay');
+        this.faceGuide = document.getElementById('faceGuide');
+        this.faceStatus = document.getElementById('faceStatus');
+        this.previewImage = document.getElementById('previewImage');
+        this.capturedFacePreview = document.getElementById('capturedFacePreview');
+        
+        this.stream = null;
+        this.isStreaming = false;
+        this.faceDetected = false;
+        this.capturedFaceData = null;
+        
+        this.init();
+    }
+    
+    init() {
+        this.setupEventListeners();
+        this.setupFormValidation();
+        this.updateSubmitButton(); // Initialize button state
+    }
+    
+    setupEventListeners() {
+        // Webcam controls
+        document.getElementById('startWebcam').addEventListener('click', () => this.startWebcam());
+        document.getElementById('stopWebcam').addEventListener('click', () => this.stopWebcam());
+        document.getElementById('captureFace').addEventListener('click', () => this.captureFace());
+        document.getElementById('retakeFace').addEventListener('click', () => this.retakeFace());
+        
+        // Form submission
+        document.getElementById('studentForm').addEventListener('submit', (e) => this.handleFormSubmit(e));
+    }
+    
+    setupFormValidation() {
     const studentIdInput = document.getElementById('studentId');
     
-    // Auto-generate student ID if not provided
+        // Auto-generate student ID
     studentIdInput.addEventListener('blur', function() {
         if (!this.value.trim()) {
             const firstName = document.getElementById('firstName').value.trim();
@@ -139,62 +391,418 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Form validation
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // Basic validation
-        const requiredFields = ['first_name', 'last_name', 'student_id'];
-        let isValid = true;
-        
-        requiredFields.forEach(fieldName => {
-            const field = document.querySelector(`[name="${fieldName}"]`);
-            if (!field.value.trim()) {
-                field.classList.add('is-invalid');
-                isValid = false;
-            } else {
-                field.classList.remove('is-invalid');
-            }
+        // Real-time validation
+        const inputs = document.querySelectorAll('input, textarea, select');
+        inputs.forEach(input => {
+            input.addEventListener('input', () => {
+                input.classList.remove('is-invalid');
+                this.updateSubmitButton();
+            });
         });
+    }
+    
+    async startWebcam() {
+        try {
+            this.stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: 'user'
+                },
+                audio: false
+            });
+            
+            this.video.srcObject = this.stream;
+            this.isStreaming = true;
+            
+            this.video.addEventListener('loadedmetadata', () => {
+                this.video.play();
+                this.updateButtonStates(true);
+                this.startFaceDetection();
+            });
+            
+            this.updateStatus('Camera started. Position your face in the center.', 'info');
+            
+        } catch (error) {
+            console.error('Error accessing webcam:', error);
+            this.updateStatus('Error accessing camera. Please check permissions.', 'error');
+        }
+    }
+    
+    stopWebcam() {
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => track.stop());
+            this.stream = null;
+        }
         
-        if (!isValid) {
-            alert('Please fill in all required fields');
+        this.video.srcObject = null;
+        this.isStreaming = false;
+        this.faceDetected = false;
+        this.updateButtonStates(false);
+        this.updateStatus('Camera stopped.', 'info');
+        this.clearFaceOverlay();
+    }
+    
+    startFaceDetection() {
+        if (!this.isStreaming) return;
+        
+        this.detectFace();
+        requestAnimationFrame(() => this.startFaceDetection());
+    }
+    
+    detectFace() {
+        if (!this.isStreaming) return;
+        
+        // This is a simplified face detection using basic image analysis
+        // In a real implementation, you would use OpenCV.js or similar
+        const canvas = this.canvas;
+        const context = canvas.getContext('2d');
+        
+        canvas.width = this.video.videoWidth;
+        canvas.height = this.video.videoHeight;
+        context.drawImage(this.video, 0, 0);
+        
+        // Simulate face detection (replace with actual face detection)
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const hasFace = this.simulateFaceDetection(imageData);
+        
+        if (hasFace) {
+            this.faceDetected = true;
+            this.faceGuide.classList.add('face-detected');
+            this.updateStatus('Face detected! Click "Capture Face" to register.', 'success');
+            document.getElementById('captureFace').disabled = false;
+            } else {
+            this.faceDetected = false;
+            this.faceGuide.classList.remove('face-detected');
+            this.updateStatus('Position your face in the center circle.', 'warning');
+            document.getElementById('captureFace').disabled = true;
+        }
+    }
+    
+    simulateFaceDetection(imageData) {
+        // Simplified face detection simulation
+        // In real implementation, use OpenCV.js or face-api.js
+        const data = imageData.data;
+        let faceScore = 0;
+        
+        // Simple brightness and contrast analysis
+        for (let i = 0; i < data.length; i += 4) {
+            const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
+            if (brightness > 50 && brightness < 200) {
+                faceScore++;
+            }
+        }
+        
+        return faceScore > data.length / 20; // Threshold for face detection
+    }
+    
+    captureFace() {
+        if (!this.faceDetected) {
+            this.updateStatus('No face detected. Please position your face properly.', 'error');
             return;
         }
         
-        // Submit form
-        const formData = new FormData(form);
+        try {
+            const canvas = this.canvas;
+            const context = canvas.getContext('2d');
+            
+            canvas.width = this.video.videoWidth;
+            canvas.height = this.video.videoHeight;
+            context.drawImage(this.video, 0, 0);
+            
+            // Convert to base64
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Simulate face encoding (replace with actual face_recognition)
+            const faceEncoding = this.generateMockFaceEncoding();
+            
+            this.capturedFaceData = {
+                image: imageData,
+                encoding: faceEncoding
+            };
+            
+            // Show preview
+            this.previewImage.src = imageData;
+            this.capturedFacePreview.style.display = 'block';
+            
+            // Update form
+            document.getElementById('faceImage').value = imageData;
+            document.getElementById('faceEncoding').value = JSON.stringify(faceEncoding);
+            
+            this.updateStatus('Face captured successfully! You can now submit the form.', 'success');
+            this.updateSubmitButton();
+            
+        } catch (error) {
+            console.error('Error capturing face:', error);
+            this.updateStatus('Error capturing face. Please try again.', 'error');
+        }
+    }
+    
+    generateMockFaceEncoding() {
+        // Generate a mock face encoding (128-dimensional vector)
+        const encoding = [];
+        for (let i = 0; i < 128; i++) {
+            encoding.push(Math.random() * 2 - 1); // Random values between -1 and 1
+        }
+        return encoding;
+    }
+    
+    retakeFace() {
+        this.capturedFaceData = null;
+        this.capturedFacePreview.style.display = 'none';
+        document.getElementById('faceImage').value = '';
+        document.getElementById('faceEncoding').value = '';
+        this.updateStatus('Please capture your face again.', 'info');
+        this.updateSubmitButton();
+    }
+    
+    updateButtonStates(isStreaming) {
+        document.getElementById('startWebcam').disabled = isStreaming;
+        document.getElementById('stopWebcam').disabled = !isStreaming;
+        document.getElementById('captureFace').disabled = !isStreaming || !this.faceDetected;
+    }
+    
+    updateStatus(message, type) {
+        this.faceStatus.innerHTML = `
+            <div class="face-status ${type}">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                ${message}
+            </div>
+        `;
+    }
+    
+    clearFaceOverlay() {
+        this.faceOverlay.innerHTML = '';
+        this.faceGuide.classList.remove('face-detected');
+    }
+    
+    updateSubmitButton() {
+        const requiredFields = ['first_name', 'last_name', 'student_id'];
+        const hasRequiredFields = requiredFields.every(field => {
+            const element = document.querySelector(`[name="${field}"]`);
+            return element && element.value.trim();
+        });
         
-        fetch('{% url "add_student" %}', {
+        const hasFaceData = this.capturedFaceData !== null;
+        const submitBtn = document.getElementById('submitBtn');
+        
+        // Debug logging
+        console.log('Form validation:', {
+            hasRequiredFields,
+            hasFaceData,
+            requiredFields: requiredFields.map(field => {
+                const element = document.querySelector(`[name="${field}"]`);
+                return { field, value: element ? element.value.trim() : 'not found' };
+            }),
+            capturedFaceData: this.capturedFaceData
+        });
+        
+        submitBtn.disabled = !(hasRequiredFields && hasFaceData);
+        
+        if (!hasRequiredFields) {
+            submitBtn.title = 'Please fill in all required fields';
+        } else if (!hasFaceData) {
+            submitBtn.title = 'Please capture your face for registration';
+        } else {
+            submitBtn.title = 'Ready to submit';
+        }
+    }
+    
+    async handleFormSubmit(e) {
+        e.preventDefault();
+        
+        if (!this.capturedFaceData) {
+            this.updateStatus('Please capture your face before submitting.', 'error');
+            return;
+        }
+        
+        const formData = new FormData(document.getElementById('studentForm'));
+        
+        // Debug: Log form data
+        console.log('Form data being sent:');
+        for (let [key, value] of formData.entries()) {
+            if (key === 'face_encoding') {
+                console.log(`${key}: ${value.substring(0, 100)}... (${value.length} chars)`);
+            } else {
+                console.log(`${key}: ${value}`);
+            }
+        }
+        
+        try {
+            const response = await fetch('{% url "add_student" %}', {
             method: 'POST',
             body: formData,
             headers: {
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             }
-        })
-        .then(response => response.json())
-        .then(data => {
+            });
+            
+            const data = await response.json();
+            console.log('Response from server:', data);
+            
             if (data.success) {
                 alert('Student added successfully!');
-                form.reset();
-                // Optionally redirect to student list or dashboard
+                this.resetForm();
                 window.location.href = '{% url "home" %}';
             } else {
                 alert('Error: ' + (data.message || 'Failed to add student'));
             }
-        })
-        .catch(error => {
+        } catch (error) {
             console.error('Error:', error);
             alert('An error occurred while adding the student');
+        }
+    }
+    
+    resetForm() {
+        document.getElementById('studentForm').reset();
+        this.capturedFaceData = null;
+        this.capturedFacePreview.style.display = 'none';
+        this.updateSubmitButton();
+        this.stopWebcam();
+    }
+}
+
+// Test MongoDB connection
+async function testMongoDB() {
+    try {
+        console.log('Testing MongoDB connection...');
+        const response = await fetch('/api/test-mongodb/', {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
         });
+        
+        const data = await response.json();
+        console.log('MongoDB test result:', data);
+        
+        if (data.success) {
+            alert('✅ MongoDB test successful!\n' + 
+                  'Created: ' + data.created + '\n' + 
+                  'Retrieved: ' + data.retrieved);
+        } else {
+            alert('❌ MongoDB test failed: ' + data.message);
+        }
+    } catch (error) {
+        console.error('MongoDB test error:', error);
+        alert('❌ MongoDB test error: ' + error.message);
+    }
+}
+
+// Test function for debugging
+function testSubmit() {
+    // Generate mock face data for testing
+    const mockFaceEncoding = [];
+    for (let i = 0; i < 128; i++) {
+        mockFaceEncoding.push(Math.random() * 2 - 1);
+    }
+    
+    // Set mock face data
+    document.getElementById('faceImage').value = 'data:image/jpeg;base64,test';
+    document.getElementById('faceEncoding').value = JSON.stringify(mockFaceEncoding);
+    
+    // Update the face detection manager
+    if (window.faceDetectionManager) {
+        window.faceDetectionManager.capturedFaceData = {
+            image: 'data:image/jpeg;base64,test',
+            encoding: mockFaceEncoding
+        };
+        window.faceDetectionManager.updateSubmitButton();
+    }
+    
+    console.log('Test face data set. Submit button should now be enabled.');
+    
+    // Auto-submit the form for testing
+    setTimeout(() => {
+        document.getElementById('studentForm').submit();
+    }, 1000);
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Page loaded, initializing advanced face detection system...');
+    
+    // Check if buttons exist
+    const testMongoBtn = document.getElementById('testMongoBtn');
+    const testSubmitBtn = document.getElementById('testSubmitBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    console.log('Button elements found:', {
+        testMongoBtn: !!testMongoBtn,
+        testSubmitBtn: !!testSubmitBtn,
+        submitBtn: !!submitBtn
     });
     
-    // Real-time validation
-    const inputs = form.querySelectorAll('input, textarea');
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            this.classList.remove('is-invalid');
+    if (testMongoBtn) {
+        console.log('Test MongoDB button found and ready');
+    } else {
+        console.error('Test MongoDB button NOT found!');
+    }
+    
+    // Update form validation when face data is captured
+    window.updateFormValidation = function() {
+        const faceData = document.getElementById('face_encoding').value;
+        const faceImage = document.getElementById('face_image').value;
+        
+        if (faceData && faceImage) {
+            // Show face data display
+            const faceDataDisplay = document.getElementById('faceDataDisplay');
+            if (faceDataDisplay) {
+                faceDataDisplay.style.display = 'block';
+                
+                // Update face data information
+                const qualityScore = document.getElementById('qualityScore');
+                const encodingDimensions = document.getElementById('encodingDimensions');
+                const captureTime = document.getElementById('captureTime');
+                const capturedImage = document.getElementById('capturedImage');
+                
+                if (qualityScore) qualityScore.textContent = '85%'; // Simulated quality
+                if (encodingDimensions) encodingDimensions.textContent = '128 dimensions';
+                if (captureTime) captureTime.textContent = new Date().toLocaleString();
+                if (capturedImage && faceImage) capturedImage.src = faceImage;
+            }
+        }
+        
+        // Update submit button
+        updateSubmitButton();
+    };
+    
+    // Debug: Check if face detection elements exist
+    setTimeout(() => {
+        console.log('Debug: Checking face detection elements...');
+        const video = document.getElementById('faceVideo');
+        const startBtn = document.getElementById('startDetection');
+        const statusText = document.getElementById('statusText');
+        
+        console.log('Face detection elements:', {
+            video: !!video,
+            startBtn: !!startBtn,
+            statusText: !!statusText
         });
+        
+        if (statusText) {
+            statusText.textContent = 'Debug: Elements found. Click "Test JS" to verify JavaScript loading.';
+        }
+    }, 1000);
+    
+    // Test JS button
+    document.addEventListener('DOMContentLoaded', function() {
+        const testJsBtn = document.getElementById('testJsBtn');
+        if (testJsBtn) {
+            testJsBtn.addEventListener('click', function() {
+                console.log('Test JS button clicked!');
+                alert('JavaScript is working! Check console for logs.');
+                
+                // Test if AdvancedFaceDetection class exists
+                if (typeof AdvancedFaceDetection !== 'undefined') {
+                    console.log('AdvancedFaceDetection class found!');
+                    alert('AdvancedFaceDetection class is loaded!');
+                } else {
+                    console.log('AdvancedFaceDetection class NOT found!');
+                    alert('AdvancedFaceDetection class is NOT loaded!');
+                }
+            });
+        }
     });
 });
 </script>

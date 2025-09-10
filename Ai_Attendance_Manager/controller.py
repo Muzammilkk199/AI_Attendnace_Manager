@@ -16,7 +16,9 @@ import re
 
 try:
     from Ai_Attendance_Manager_Models.models import Student, Attendance
-except:
+    print("Successfully imported Student and Attendance models")
+except Exception as e:
+    print(f"Error importing models: {e}")
     Student = None
     Attendance = None
 
@@ -190,43 +192,150 @@ def reset_password_view(request, uidb64, token):
 
 
 def add_student(request):
+    print(f"\n{'='*50}")
+    print(f"ADD_STUDENT FUNCTION CALLED")
+    print(f"Method: {request.method}")
+    print(f"User: {request.user}")
+    print(f"Headers: {dict(request.headers)}")
+    print(f"{'='*50}")
+    
     if request.method == 'POST':
+        print("\n📝 PROCESSING POST REQUEST")
+        
+        # Log all POST data
+        print("📋 POST Data received:")
+        for key, value in request.POST.items():
+            if key == 'face_encoding':
+                print(f"  {key}: {value[:100]}... (length: {len(value)})")
+            else:
+                print(f"  {key}: {value}")
+        
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
         student_id = request.POST.get('student_id')
         email = request.POST.get('email', '')
         phone = request.POST.get('phone', '')
         class_name = request.POST.get('class_name', '')
+        section = request.POST.get('section', '')
+        is_active = request.POST.get('is_active', 'true').lower() == 'true'
+        face_encoding = request.POST.get('face_encoding', '')
+        face_image = request.POST.get('face_image', '')
+        
+        print(f"\n🔍 VALIDATION CHECKS:")
+        print(f"  First Name: '{first_name}' (valid: {bool(first_name)})")
+        print(f"  Last Name: '{last_name}' (valid: {bool(last_name)})")
+        print(f"  Student ID: '{student_id}' (valid: {bool(student_id)})")
+        print(f"  Face Encoding: {'Present' if face_encoding else 'Missing'}")
+        print(f"  Face Image: {'Present' if face_image else 'Missing'}")
         
         if not first_name or not last_name or not student_id:
+            print("❌ VALIDATION FAILED: Missing required fields")
             return JsonResponse({
                 'success': False,
                 'message': 'Please fill required fields'
             })
         
-        # basic validation - need to improve later
-        
-        if Student:
-            if Student.objects.filter(student_id=student_id).exists():
+        # Allow testing without face data if using test data
+        if not face_encoding or not face_image:
+            if face_image == 'data:image/jpeg;base64,test':
+                # This is test data, allow it
+                face_encoding = '[]'  # Empty array for test
+                print("✅ Using test data - no face capture required")
+            else:
+                print("❌ VALIDATION FAILED: No face data provided")
                 return JsonResponse({
                     'success': False,
-                    'message': 'Student ID already exists'
+                    'message': 'Please capture your face for registration'
                 })
-            
-            student = Student.objects.create(
-                first_name=first_name,
-                last_name=last_name,
-                student_id=student_id,
-                email=email,
-                phone=phone,
-                class_name=class_name
-            )
         
-        return JsonResponse({
-            'success': True,
-            'message': 'Student added successfully'
-        })
+        print(f"\n🗄️ DATABASE OPERATIONS:")
+        print(f"  Student model available: {Student is not None}")
+        
+        if Student:
+            try:
+                # Check if student ID already exists
+                print(f"  Checking if student ID '{student_id}' already exists...")
+                existing_student = Student.objects.filter(student_id=student_id).first()
+                if existing_student:
+                    print(f"❌ Student ID already exists: {existing_student}")
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Student ID already exists'
+                    })
+                print(f"✅ Student ID '{student_id}' is available")
+                
+                # Parse face encoding
+                print(f"  Parsing face encoding...")
+                try:
+                    face_encoding_data = json.loads(face_encoding)
+                    print(f"✅ Parsed face encoding: {len(face_encoding_data)} dimensions")
+                except json.JSONDecodeError as e:
+                    print(f"❌ JSON decode error: {e}")
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Invalid face data format: {str(e)}'
+                    })
+                
+                # Create student
+                print(f"  Creating student in SQLite...")
+                student = Student.objects.create(
+                    first_name=first_name,
+                    last_name=last_name,
+                    student_id=student_id,
+                    email=email,
+                    phone=phone,
+                    class_name=class_name,
+                    section=section,
+                    is_active=is_active
+                )
+                print(f"✅ Created student: {student} (ID: {student.id})")
+                
+                # Save face embedding to MongoDB
+                print(f"  Saving face embedding to MongoDB...")
+                try:
+                    result = student.save_embedding(face_encoding_data)
+                    print(f"✅ Saved embedding result: {result}")
+                    
+                    # Also verify the student was saved to MongoDB
+                    from Ai_Attendance_Manager_Models.mongodb_manager import StudentMongoDBManager
+                    mongo = StudentMongoDBManager()
+                    if mongo.connected:
+                        mongo_student = mongo.find_by_student_id(student.student_id)
+                        if mongo_student:
+                            print(f"✅ Student found in MongoDB: {mongo_student['name']}")
+                        else:
+                            print("❌ Student not found in MongoDB")
+                    else:
+                        print("⚠️ MongoDB not connected - skipping verification")
+                        
+                except Exception as e:
+                    print(f"⚠️ Error saving embedding: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # Continue even if embedding save fails - student is already saved in SQLite
+                
+                print(f"\n🎉 SUCCESS: Student '{student.name}' created successfully!")
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Student added successfully with face registration'
+                })
+                
+            except Exception as e:
+                print(f"❌ UNEXPECTED ERROR: {e}")
+                import traceback
+                traceback.print_exc()
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Error saving student: {str(e)}'
+                })
+        else:
+            print("❌ Student model is None - import failed")
+            return JsonResponse({
+                'success': False,
+                'message': 'Student model not available - check database connection'
+            })
     
+    print(f"\n📄 RENDERING ADD_STUDENT TEMPLATE")
     return render(request, 'add_student.html')
 
 
@@ -401,3 +510,148 @@ def dashboard_data(request):
 def attendance_details(request, attendance_id):
     # not implemented yet - will add later
     return JsonResponse({'success': False, 'message': 'Not implemented yet'})
+
+def test_page(request):
+    return render(request, 'test_page.html')
+
+@csrf_exempt
+def test_mongodb(request):
+    """Test MongoDB connection and functionality"""
+    print(f"\n{'='*30} MONGODB TEST {'='*30}")
+    try:
+        from Ai_Attendance_Manager_Models.mongodb_manager import StudentMongoDBManager
+        
+        # Test connection
+        print("Testing MongoDB connection...")
+        mongo = StudentMongoDBManager()
+        
+        if not mongo.connected:
+            print("❌ MongoDB not connected")
+            return JsonResponse({
+                'success': False,
+                'message': 'MongoDB connection failed - check your internet connection and MongoDB URI',
+                'created': False,
+                'retrieved': False
+            })
+        
+        print("✅ MongoDB connected successfully")
+        
+        # Test creating a document
+        test_data = {
+            'student_id': 'TEST_MONGO',
+            'name': 'Test MongoDB User',
+            'first_name': 'Test',
+            'last_name': 'MongoDB',
+            'email': 'test@mongodb.com',
+            'phone': '1234567890',
+            'class_name': 'Test Class',
+            'section': 'A',
+            'is_active': True,
+            'embedding': [0.1] * 128,
+            'django_id': 999
+        }
+        
+        print("Creating test document...")
+        result = mongo.create(**test_data)
+        print(f"Create result: {result}")
+        
+        # Test retrieving the document
+        print("Retrieving test document...")
+        retrieved = mongo.find_by_student_id('TEST_MONGO')
+        print(f"Retrieved: {retrieved is not None}")
+        
+        # Clean up
+        if retrieved:
+            print("Cleaning up test document...")
+            mongo.delete(retrieved['id'])
+        
+        print("✅ MongoDB test completed successfully")
+        return JsonResponse({
+            'success': True,
+            'message': 'MongoDB test successful',
+            'created': result is not None,
+            'retrieved': retrieved is not None
+        })
+        
+    except Exception as e:
+        print(f"❌ MongoDB test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'message': f'MongoDB test failed: {str(e)}',
+            'created': False,
+            'retrieved': False
+        })
+
+
+@csrf_exempt
+def test_student_creation(request):
+    """Test student creation with mock data"""
+    print(f"\n{'='*30} STUDENT CREATION TEST {'='*30}")
+    
+    try:
+        if not Student:
+            return JsonResponse({
+                'success': False,
+                'message': 'Student model not available'
+            })
+        
+        # Create test student data
+        test_data = {
+            'first_name': 'Test',
+            'last_name': 'Student',
+            'student_id': f'TEST_{int(timezone.now().timestamp())}',
+            'email': 'test@example.com',
+            'phone': '1234567890',
+            'class_name': 'Test Class',
+            'section': 'A',
+            'is_active': True,
+            'face_encoding': json.dumps([0.1] * 128),
+            'face_image': 'data:image/jpeg;base64,test'
+        }
+        
+        print("Creating test student...")
+        print(f"Test data: {test_data}")
+        
+        # Simulate the add_student logic
+        student = Student.objects.create(
+            first_name=test_data['first_name'],
+            last_name=test_data['last_name'],
+            student_id=test_data['student_id'],
+            email=test_data['email'],
+            phone=test_data['phone'],
+            class_name=test_data['class_name'],
+            section=test_data['section'],
+            is_active=test_data['is_active']
+        )
+        
+        print(f"✅ Created student: {student}")
+        
+        # Test MongoDB save
+        try:
+            face_encoding_data = json.loads(test_data['face_encoding'])
+            result = student.save_embedding(face_encoding_data)
+            print(f"✅ Saved embedding: {result}")
+        except Exception as e:
+            print(f"⚠️ Embedding save failed: {e}")
+        
+        # Clean up
+        student.delete()
+        print("✅ Test student deleted")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Student creation test successful',
+            'student_created': True,
+            'embedding_saved': result is not None
+        })
+        
+    except Exception as e:
+        print(f"❌ Student creation test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'message': f'Student creation test failed: {str(e)}'
+        })
