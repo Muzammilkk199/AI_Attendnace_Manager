@@ -4,7 +4,8 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-6 col-lg-4">
+    <div class="col-md-6 col-lg-5">
+        <!-- Login Form -->
         <div class="card shadow-custom">
             <div class="card-header text-center">
                 <h3 class="card-title mb-0">
@@ -16,12 +17,14 @@
                 <form method="post" id="loginForm">
                     {% csrf_token %}
                     <div class="mb-3">
-                        <label for="username" class="form-label">Username</label>
+                        <label for="username" class="form-label">Username or Email</label>
                         <div class="input-group">
                             <span class="input-group-text">
                                 <i class="fas fa-user"></i>
                             </span>
-                            <input type="text" class="form-control" id="username" name="username" required>
+                            <input type="text" class="form-control" id="username" name="username" required 
+                                   placeholder="Enter your username or email">
+                            <div class="invalid-feedback" id="usernameError"></div>
                         </div>
                     </div>
                     
@@ -31,29 +34,40 @@
                             <span class="input-group-text">
                                 <i class="fas fa-lock"></i>
                             </span>
-                            <input type="password" class="form-control" id="password" name="password" required>
+                            <input type="password" class="form-control" id="password" name="password" required 
+                                   placeholder="Enter your password">
                             <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                 <i class="fas fa-eye"></i>
                             </button>
+                            <div class="invalid-feedback" id="passwordError"></div>
                         </div>
                     </div>
                     
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="rememberMe" name="remember_me">
                         <label class="form-check-label" for="rememberMe">
-                            Remember me
+                            Remember me for 7 days
                         </label>
                     </div>
                     
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" id="loginBtn">
                             <i class="fas fa-sign-in-alt"></i> Login
                         </button>
                     </div>
                 </form>
                 
                 <div class="text-center mt-3">
-                    <a href="#" class="text-decoration-none">Forgot your password?</a>
+                    <a href="#" class="text-decoration-none" id="forgotPasswordLink">Forgot your password?</a>
+                </div>
+                
+                <hr class="my-4">
+                
+                <div class="text-center">
+                    <p class="mb-0 text-muted">
+                        <i class="fas fa-info-circle"></i> Need an account?<br>
+                        <small>Contact your administrator to create an account for you.</small>
+                    </p>
                 </div>
             </div>
         </div>
@@ -65,9 +79,39 @@
                     <i class="fas fa-info-circle"></i> Demo Credentials
                 </h6>
                 <p class="card-text small text-muted">
-                    <strong>Username:</strong> admin<br>
-                    <strong>Password:</strong> admin123
+                    <strong>Note:</strong> Use your Django superuser credentials<br>
+                    <small>Create one with: <code>python manage.py createsuperuser</code></small>
                 </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Forgot Password Modal -->
+<div class="modal fade" id="forgotPasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-key"></i> Reset Password
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Enter your email address and we'll send you a link to reset your password.</p>
+                <form id="forgotPasswordForm">
+                    <div class="mb-3">
+                        <label for="reset_email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="reset_email" name="email" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="sendResetBtn">
+                    <i class="fas fa-paper-plane"></i> Send Reset Link
+                </button>
             </div>
         </div>
     </div>
@@ -77,31 +121,81 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('loginForm');
+    // Elements
+    const loginForm = document.getElementById('loginForm');
+    const forgotPasswordForm = document.getElementById('forgotPasswordForm');
     const togglePassword = document.getElementById('togglePassword');
     const passwordInput = document.getElementById('password');
+    const loginBtn = document.getElementById('loginBtn');
+    const sendResetBtn = document.getElementById('sendResetBtn');
     
-    // Toggle password visibility
-    togglePassword.addEventListener('click', function() {
+    // Modal elements
+    const forgotPasswordModal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
+    
+    // Links
+    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+    
+    // Initialize
+    initializeEventListeners();
+    initializeFormValidation();
+    
+    function initializeEventListeners() {
+        // Password visibility toggle
+        togglePassword.addEventListener('click', togglePasswordVisibility);
+        
+        // Form submissions
+        loginForm.addEventListener('submit', handleLogin);
+        sendResetBtn.addEventListener('click', handleForgotPassword);
+        
+        // Modal triggers
+        forgotPasswordLink.addEventListener('click', () => forgotPasswordModal.show());
+        
+        
+        // Real-time validation
+        document.getElementById('username').addEventListener('blur', validateUsername);
+        document.getElementById('password').addEventListener('input', validatePassword);
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', handleKeyboardShortcuts);
+    }
+    
+    function initializeFormValidation() {
+        // Add real-time validation classes
+        const inputs = document.querySelectorAll('input[required]');
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                if (this.value.trim() !== '') {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                } else {
+                    this.classList.remove('is-valid');
+                }
+            });
+        });
+    }
+    
+    function togglePasswordVisibility() {
         const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
         passwordInput.setAttribute('type', type);
         
         const icon = this.querySelector('i');
         icon.classList.toggle('fa-eye');
         icon.classList.toggle('fa-eye-slash');
-    });
+    }
     
-    // Form submission
-    form.addEventListener('submit', function(e) {
+    function handleLogin(e) {
         e.preventDefault();
         
-        const formData = new FormData(form);
-        const submitBtn = form.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
+        const formData = new FormData(loginForm);
+        const originalText = loginBtn.innerHTML;
+        
+        // Validate form
+        if (!validateLoginForm()) {
+            return;
+        }
         
         // Show loading state
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="loading-spinner"></span> Logging in...';
+        setButtonLoading(loginBtn, 'Logging in...');
         
         fetch('{% url "login" %}', {
             method: 'POST',
@@ -113,15 +207,16 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Show success message
-                showNotification('Login successful! Redirecting...', 'success');
+                showNotification(`Welcome back! Redirecting to ${data.user_role} dashboard...`, 'success');
                 
-                // Redirect after a short delay
+                // Redirect after delay
                 setTimeout(() => {
                     window.location.href = data.redirect_url || '{% url "home" %}';
-                }, 1000);
+                }, 1500);
             } else {
                 showNotification(data.message || 'Login failed. Please check your credentials.', 'danger');
+                // Shake form for failed login
+                shakeElement(loginForm);
             }
         })
         .catch(error => {
@@ -129,39 +224,212 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('An error occurred during login. Please try again.', 'danger');
         })
         .finally(() => {
-            // Reset button state
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
+            setButtonNormal(loginBtn, originalText);
         });
-    });
+    }
     
-    // Auto-fill demo credentials
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.key === 'd') {
-            e.preventDefault();
-            document.getElementById('username').value = 'admin';
-            document.getElementById('password').value = 'admin123';
-            showNotification('Demo credentials filled!', 'info');
+    
+    function handleForgotPassword() {
+        const email = document.getElementById('reset_email').value;
+        const originalText = sendResetBtn.innerHTML;
+        
+        if (!email) {
+            showNotification('Please enter your email address', 'warning');
+            return;
         }
-    });
+        
+        setButtonLoading(sendResetBtn, 'Sending...');
+        
+        fetch('{% url "forgot_password" %}', {
+            method: 'POST',
+            body: JSON.stringify({ email: email }),
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                forgotPasswordModal.hide();
+                document.getElementById('reset_email').value = '';
+            } else {
+                showNotification(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Failed to send reset email. Please try again.', 'danger');
+        })
+        .finally(() => {
+            setButtonNormal(sendResetBtn, originalText);
+        });
+    }
+    
+    
+    function validateLoginForm() {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        
+        let isValid = true;
+        
+        if (!username) {
+            showFieldError('username', 'Username or email is required');
+            isValid = false;
+        }
+        
+        if (!password) {
+            showFieldError('password', 'Password is required');
+            isValid = false;
+        }
+        
+        return isValid;
+    }
+    
+    
+    function validateUsername() {
+        const username = document.getElementById('username').value.trim();
+        const field = document.getElementById('username');
+        
+        if (username) {
+            // Check if it's an email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (emailRegex.test(username)) {
+                field.classList.remove('is-invalid');
+                field.classList.add('is-valid');
+            } else {
+                // Username validation
+                if (username.length >= 3) {
+                    field.classList.remove('is-invalid');
+                    field.classList.add('is-valid');
+                } else {
+                    showFieldError('username', 'Username must be at least 3 characters');
+                }
+            }
+        }
+    }
+    
+    function validatePassword() {
+        const password = document.getElementById('password').value;
+        const field = document.getElementById('password');
+        
+        if (password.length >= 6) {
+            field.classList.remove('is-invalid');
+            field.classList.add('is-valid');
+        } else if (password.length > 0) {
+            showFieldError('password', 'Password must be at least 6 characters');
+        }
+    }
+    
+    
+    function showFieldError(fieldId, message) {
+        const field = document.getElementById(fieldId);
+        const errorElement = document.getElementById(fieldId.replace('reg_', '') + 'Error') || 
+                           document.getElementById(fieldId + 'Error');
+        
+        field.classList.add('is-invalid');
+        field.classList.remove('is-valid');
+        
+        if (errorElement) {
+            errorElement.textContent = message;
+        }
+    }
+    
+    function setButtonLoading(button, text) {
+        button.disabled = true;
+        button.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${text}`;
+    }
+    
+    function setButtonNormal(button, originalText) {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+    
+    function shakeElement(element) {
+        element.classList.add('shake');
+        setTimeout(() => {
+            element.classList.remove('shake');
+        }, 500);
+    }
+    
+    function handleKeyboardShortcuts(e) {
+        // Enter key on modals
+        if (e.key === 'Enter') {
+            if (forgotPasswordModal._isShown) {
+                handleForgotPassword();
+            }
+        }
+    }
     
     function showNotification(message, type) {
+        // Remove existing notifications
+        const existingNotifications = document.querySelectorAll('.notification-toast');
+        existingNotifications.forEach(notification => notification.remove());
+        
         const notification = document.createElement('div');
-        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed notification-toast`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; max-width: 400px;';
+        
+        const icon = getNotificationIcon(type);
         notification.innerHTML = `
+            <i class="${icon} me-2"></i>
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
         
         document.body.appendChild(notification);
         
+        // Auto-remove after 5 seconds
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.remove();
             }
         }, 5000);
     }
+    
+    function getNotificationIcon(type) {
+        const icons = {
+            'success': 'fas fa-check-circle',
+            'danger': 'fas fa-exclamation-circle',
+            'warning': 'fas fa-exclamation-triangle',
+            'info': 'fas fa-info-circle'
+        };
+        return icons[type] || 'fas fa-info-circle';
+    }
 });
 </script>
+
+<style>
+.shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.notification-toast {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: none;
+    border-radius: 8px;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+.form-control.is-valid {
+    border-color: #198754;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='m2.3 6.73.94-.94 1.88-1.88'/%3e%3c/svg%3e");
+}
+
+.form-control.is-invalid {
+    border-color: #dc3545;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 4.6 1.4 1.4 1.4-1.4'/%3e%3c/svg%3e");
+}
+</style>
 {% endblock %}
