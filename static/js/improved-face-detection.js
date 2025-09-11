@@ -31,13 +31,62 @@ class ImprovedFaceDetection {
         this.modelsLoaded = false;
         
         // Detection parameters
-        this.minFaceSize = 50;
+        this.minFaceSize = 30; // Reduced minimum size for easier detection
         this.maxFaceSize = 300;
-        this.qualityThreshold = 0.6;
-        this.stabilityFrames = 5; // Frames to wait for stable detection
+        this.qualityThreshold = 0.4; // Reduced threshold for easier detection
+        this.stabilityFrames = 3; // Reduced frames for more responsive detection
         this.stableFrames = 0;
+        this.faceHistory = []; // For tracking face stability
+        this.historySize = 5;
+        this.lastFacePosition = null; // For smooth tracking
+        this.targetFacePosition = null; // Target position for interpolation
+        this.currentFacePosition = null; // Current interpolated position
+        this.interpolationSpeed = 0.15; // How fast to interpolate (0.1 = slow, 0.3 = fast)
         
         this.init();
+    }
+    
+    // Smooth interpolation for face tracking
+    interpolatePosition(current, target, speed) {
+        if (!current || !target) return target;
+        
+        return {
+            x: current.x + (target.x - current.x) * speed,
+            y: current.y + (target.y - current.y) * speed,
+            width: current.width + (target.width - current.width) * speed,
+            height: current.height + (target.height - current.height) * speed
+        };
+    }
+    
+    // Update face position with smooth interpolation
+    updateFacePosition(newFace) {
+        if (!newFace) {
+            this.targetFacePosition = null;
+            this.currentFacePosition = null;
+            return null;
+        }
+        
+        // Set target position
+        this.targetFacePosition = {
+            x: newFace.x,
+            y: newFace.y,
+            width: newFace.width,
+            height: newFace.height
+        };
+        
+        // Initialize current position if not set
+        if (!this.currentFacePosition) {
+            this.currentFacePosition = { ...this.targetFacePosition };
+        }
+        
+        // Interpolate towards target
+        this.currentFacePosition = this.interpolatePosition(
+            this.currentFacePosition,
+            this.targetFacePosition,
+            this.interpolationSpeed
+        );
+        
+        return this.currentFacePosition;
     }
     
     async init() {
@@ -313,14 +362,20 @@ class ImprovedFaceDetection {
     showSingleFaceBox(face) {
         if (!this.faceBox) return;
         
+        // Update face position with smooth interpolation
+        const smoothFace = this.updateFacePosition(face);
+        if (!smoothFace) return;
+        
         const scaleX = this.video.offsetWidth / this.canvas.width;
         const scaleY = this.video.offsetHeight / this.canvas.height;
         
-        const boxX = face.x * scaleX;
-        const boxY = face.y * scaleY;
-        const boxWidth = face.width * scaleX;
-        const boxHeight = face.height * scaleY;
+        const boxX = smoothFace.x * scaleX;
+        const boxY = smoothFace.y * scaleY;
+        const boxWidth = smoothFace.width * scaleX;
+        const boxHeight = smoothFace.height * scaleY;
         
+        // Apply smooth positioning with CSS transitions
+        this.faceBox.style.transition = 'left 0.1s ease-out, top 0.1s ease-out, width 0.1s ease-out, height 0.1s ease-out';
         this.faceBox.style.left = boxX + 'px';
         this.faceBox.style.top = boxY + 'px';
         this.faceBox.style.width = boxWidth + 'px';
@@ -387,12 +442,15 @@ class ImprovedFaceDetection {
         `;
         faceBox.appendChild(espCorners);
         
-        // Add face info
+        // Add face info with enhanced quality display
         const faceInfo = document.createElement('div');
         faceInfo.className = 'face-info';
+        const qualityScore = Math.round(face.quality_score * 100);
+        const stabilityScore = face.stability_score ? Math.round(face.stability_score * 100) : 0;
         faceInfo.innerHTML = `
             <span class="face-count">Face ${index + 1}</span>
-            <span class="quality-score">${Math.round(face.confidence * 100)}%</span>
+            <span class="quality-score">${qualityScore}%</span>
+            ${stabilityScore > 0 ? `<span class="stability-score">${stabilityScore}%</span>` : ''}
         `;
         faceBox.appendChild(faceInfo);
         
@@ -413,6 +471,11 @@ class ImprovedFaceDetection {
         // Remove all multiple face boxes
         const multipleFaceBoxes = document.querySelectorAll('.multiple-face');
         multipleFaceBoxes.forEach(box => box.remove());
+        
+        // Reset position tracking when hiding
+        this.targetFacePosition = null;
+        this.currentFacePosition = null;
+        this.lastFacePosition = null;
     }
     
     showMultipleFacesWarning() {

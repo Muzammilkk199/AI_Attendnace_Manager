@@ -27,6 +27,8 @@ class PythonFaceDetector:
         self.face_cascade = None
         self.eye_cascade = None
         self.initialized = False
+        self.face_history = []  # For detection stability
+        self.history_size = 5   # Number of frames to consider for stability
         self.initialize_cascades()
     
     def initialize_cascades(self):
@@ -100,7 +102,7 @@ class PythonFaceDetector:
     
     def detect_faces(self, image) -> List[Dict]:
         """
-        Detect faces in image using OpenCV Haar Cascades
+        Detect faces in image using OpenCV Haar Cascades with enhanced accuracy
         Returns list of face dictionaries with coordinates, size, and quality
         """
         if not self.initialized or image is None:
@@ -110,14 +112,32 @@ class PythonFaceDetector:
             # Convert to grayscale for face detection
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             
-            # Detect faces
-            faces = self.face_cascade.detectMultiScale(
-                gray,
-                scaleFactor=1.1,
-                minNeighbors=5,
-                minSize=(30, 30),
-                flags=cv2.CASCADE_SCALE_IMAGE
-            )
+            # Apply histogram equalization for better contrast
+            gray = cv2.equalizeHist(gray)
+            
+            # Apply Gaussian blur to reduce noise
+            gray = cv2.GaussianBlur(gray, (3, 3), 0)
+            
+            # Detect faces with improved parameters for better accuracy
+            try:
+                faces = self.face_cascade.detectMultiScale(
+                    gray,
+                    scaleFactor=1.1,   # Safe scale factor to avoid OpenCV assertion error
+                    minNeighbors=4,    # Reduced threshold for easier detection
+                    minSize=(30, 30),  # Smaller minimum size for easier detection
+                    maxSize=(400, 400), # Increased maximum size for more flexibility
+                    flags=cv2.CASCADE_SCALE_IMAGE | cv2.CASCADE_DO_CANNY_PRUNING
+                )
+            except cv2.error as e:
+                logger.warning(f"OpenCV error with advanced parameters, falling back to basic detection: {str(e)}")
+                # Fallback to basic detection parameters
+                faces = self.face_cascade.detectMultiScale(
+                    gray,
+                    scaleFactor=1.1,
+                    minNeighbors=3,    # More lenient fallback
+                    minSize=(25, 25),  # Even smaller minimum size
+                    flags=cv2.CASCADE_SCALE_IMAGE
+                )
             
             face_data = []
             
@@ -144,7 +164,10 @@ class PythonFaceDetector:
                 
                 face_data.append(face_info)
             
-            return face_data
+            # Apply temporal smoothing for better stability
+            smoothed_faces = self.smooth_detections(face_data)
+            
+            return smoothed_faces
             
         except Exception as e:
             logger.error(f"Error detecting faces: {str(e)}")
@@ -153,19 +176,19 @@ class PythonFaceDetector:
     
     def calculate_face_quality(self, x: int, y: int, w: int, h: int, eyes_count: int, image_shape: Tuple) -> float:
         """
-        Calculate face quality score based on various factors
+        Calculate enhanced face quality score based on multiple factors
         Returns score between 0.0 and 1.0
         """
         try:
             img_height, img_width = image_shape[:2]
             
-            # Size score (optimal face size is 15-25% of image)
-            optimal_size = min(img_width, img_height) * 0.2
+            # Size score (optimal face size is 15-35% of image - more lenient)
+            optimal_size = min(img_width, img_height) * 0.25
             size_diff = abs(w - optimal_size)
-            max_size_diff = optimal_size * 0.5
+            max_size_diff = optimal_size * 1.0  # Increased tolerance
             size_score = max(0, 1 - (size_diff / max_size_diff))
             
-            # Position score (center is better)
+            # Position score (center is better, with tolerance)
             center_x = img_width / 2
             center_y = img_height / 2
             face_center_x = x + w / 2
@@ -177,27 +200,124 @@ class PythonFaceDetector:
             max_distance = np.sqrt(center_x**2 + center_y**2)
             position_score = max(0, 1 - (distance_from_center / max_distance))
             
-            # Eye detection score
+            # Eye detection score (more lenient - eyes are nice but not required)
             eye_score = min(1.0, eyes_count / 2.0)  # 2 eyes = perfect score
+            if eyes_count >= 2:
+                eye_score = 1.0
+            elif eyes_count == 1:
+                eye_score = 0.8  # Increased from 0.6
+            else:
+                eye_score = 0.6  # Increased from 0.3 - eyes not required
             
-            # Aspect ratio score (faces should be roughly square)
+            # Aspect ratio score (more lenient - faces can vary more)
             aspect_ratio = w / h
-            ideal_ratio = 1.0
-            aspect_score = max(0, 1 - abs(aspect_ratio - ideal_ratio) / 0.3)
+            ideal_ratio = 0.85  # Slightly taller than wide
+            aspect_score = max(0, 1 - abs(aspect_ratio - ideal_ratio) / 0.6)  # Increased tolerance
             
-            # Overall quality (weighted average)
+            # Face area coverage score (more lenient coverage requirements)
+            face_area = w * h
+            image_area = img_width * img_height
+            coverage_ratio = face_area / image_area
+            optimal_coverage = 0.15  # 15% of image
+            coverage_score = max(0, 1 - abs(coverage_ratio - optimal_coverage) / 0.2)  # Increased tolerance
+            
+            # Sharpness score (based on face dimensions)
+            sharpness_score = min(1.0, (w + h) / 200.0)  # Larger faces are generally sharper
+            
+            # Overall quality (weighted average - more lenient weighting)
             quality = (
-                size_score * 0.3 +
-                position_score * 0.3 +
-                eye_score * 0.2 +
-                aspect_score * 0.2
+                size_score * 0.2 +      # Reduced weight
+                position_score * 0.2 +   # Reduced weight
+                eye_score * 0.3 +        # Increased weight for eyes
+                aspect_score * 0.15 +
+                coverage_score * 0.1 +   # Increased weight
+                sharpness_score * 0.05
             )
+            
+            # Apply quality boost for good conditions (more lenient)
+            if eyes_count >= 1 and size_score > 0.5 and position_score > 0.5:
+                quality = min(1.0, quality * 1.15)  # Increased boost
             
             return min(1.0, max(0.0, quality))
             
         except Exception as e:
             logger.error(f"Error calculating face quality: {str(e)}")
             return 0.5
+    
+    def smooth_detections(self, current_faces: List[Dict]) -> List[Dict]:
+        """
+        Apply temporal smoothing to reduce false positives and improve stability
+        """
+        try:
+            # Add current detection to history
+            self.face_history.append(current_faces)
+            
+            # Keep only recent history
+            if len(self.face_history) > self.history_size:
+                self.face_history.pop(0)
+            
+            # If we don't have enough history, return current detection
+            if len(self.face_history) < 3:
+                return current_faces
+            
+            # Find faces that appear consistently across frames
+            stable_faces = []
+            
+            for current_face in current_faces:
+                cx, cy, cw, ch = current_face['x'], current_face['y'], current_face['width'], current_face['height']
+                face_center = (cx + cw/2, cy + ch/2)
+                
+                # Count how many times a similar face appears in history
+                appearance_count = 0
+                total_quality = 0
+                
+                for historical_faces in self.face_history:
+                    for hist_face in historical_faces:
+                        hx, hy, hw, hh = hist_face['x'], hist_face['y'], hist_face['width'], hist_face['height']
+                        hist_center = (hx + hw/2, hy + hh/2)
+                        
+                        # Calculate distance between face centers
+                        distance = np.sqrt((face_center[0] - hist_center[0])**2 + (face_center[1] - hist_center[1])**2)
+                        
+                        # If faces are close enough, consider them the same
+                        if distance < min(cw, ch) * 0.5:  # 50% of face size tolerance
+                            appearance_count += 1
+                            total_quality += hist_face.get('quality_score', 0.5)
+                            break
+                
+                # Only include faces that appear in at least 40% of recent frames (more lenient)
+                if appearance_count >= len(self.face_history) * 0.4:
+                    # Average the quality score
+                    avg_quality = total_quality / appearance_count if appearance_count > 0 else current_face.get('quality_score', 0.5)
+                    
+                    # Create smoothed face data
+                    smoothed_face = current_face.copy()
+                    smoothed_face['quality_score'] = avg_quality
+                    smoothed_face['confidence'] = avg_quality
+                    smoothed_face['stability_score'] = appearance_count / len(self.face_history)
+                    
+                    stable_faces.append(smoothed_face)
+            
+            return stable_faces
+            
+        except Exception as e:
+            logger.error(f"Error smoothing detections: {str(e)}")
+            return current_faces
+    
+    def reset_detection_history(self):
+        """Reset the face detection history for a fresh start"""
+        self.face_history = []
+        logger.info("Face detection history reset")
+    
+    def get_detection_stats(self) -> Dict:
+        """Get current detection statistics"""
+        return {
+            'history_size': len(self.face_history),
+            'max_history_size': self.history_size,
+            'initialized': self.initialized,
+            'face_cascade_loaded': self.face_cascade is not None and not self.face_cascade.empty(),
+            'eye_cascade_loaded': self.eye_cascade is not None and not self.eye_cascade.empty()
+        }
     
     def generate_face_encoding(self, image, face_data: Dict) -> List[float]:
         """
