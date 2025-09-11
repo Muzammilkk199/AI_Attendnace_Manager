@@ -1,6 +1,6 @@
 """
-Python Face Detection Module using OpenCV
-Replaces JavaScript face detection with server-side Python processing
+Python Face Detection Module using Face Recognition
+Replaces JavaScript face detection with server-side Python processing using face_recognition library
 """
 
 import base64
@@ -10,60 +10,46 @@ import random
 import math
 from typing import List, Dict, Tuple, Optional
 import os
+import io
 
-# Import OpenCV and numpy - these should be available
+# Import face recognition and image processing libraries
+import face_recognition
 import cv2
 import numpy as np
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
 class PythonFaceDetector:
     """
-    Advanced face detection using OpenCV with Haar Cascades
+    Advanced face detection using face_recognition library
     Provides accurate face detection, multiple face handling, and face encoding
     """
     
     def __init__(self):
-        self.face_cascade = None
-        self.eye_cascade = None
         self.initialized = False
         self.face_history = []  # For detection stability
         self.history_size = 5   # Number of frames to consider for stability
-        self.initialize_cascades()
+        self.initialize_face_recognition()
     
-    def initialize_cascades(self):
-        """Initialize OpenCV Haar Cascades for face and eye detection"""
+    def initialize_face_recognition(self):
+        """Initialize face_recognition library"""
         try:
-            # Load cascades from OpenCV data directory
-            cascade_path = cv2.data.haarcascades
+            # Test face_recognition library by loading a simple image
+            test_image = np.zeros((100, 100, 3), dtype=np.uint8)
             
-            # Face cascade
-            face_cascade_path = os.path.join(cascade_path, 'haarcascade_frontalface_default.xml')
-            if os.path.exists(face_cascade_path):
-                self.face_cascade = cv2.CascadeClassifier(face_cascade_path)
-            else:
-                # Fallback to default
-                self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-            
-            # Eye cascade for better face validation
-            eye_cascade_path = os.path.join(cascade_path, 'haarcascade_eye.xml')
-            if os.path.exists(eye_cascade_path):
-                self.eye_cascade = cv2.CascadeClassifier(eye_cascade_path)
-            else:
-                self.eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
-            
-            if self.face_cascade.empty() or self.eye_cascade.empty():
-                raise Exception("Failed to load Haar cascades")
+            # Try to detect faces in test image (should return empty list)
+            face_locations = face_recognition.face_locations(test_image)
             
             self.initialized = True
-            logger.info("Python Face Detector initialized successfully with OpenCV")
+            logger.info("Python Face Detector initialized successfully with face_recognition library")
             
         except Exception as e:
-            logger.error(f"Failed to initialize face detector: {str(e)}")
+            logger.error(f"Failed to initialize face_recognition library: {str(e)}")
             raise e
     
     def base64_to_image(self, base64_string: str):
-        """Convert base64 string to OpenCV image"""
+        """Convert base64 string to RGB image for face_recognition"""
         try:
             # Remove data URL prefix if present
             if ',' in base64_string:
@@ -72,25 +58,29 @@ class PythonFaceDetector:
             # Decode base64
             image_data = base64.b64decode(base64_string)
             
-            # Convert to numpy array
-            nparr = np.frombuffer(image_data, np.uint8)
-            # Decode image
-            image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            return image
+            # Convert to PIL Image
+            pil_image = Image.open(io.BytesIO(image_data))
+            
+            # Convert to RGB (face_recognition expects RGB)
+            rgb_image = np.array(pil_image.convert('RGB'))
+            
+            return rgb_image
             
         except Exception as e:
             logger.error(f"Error converting base64 to image: {str(e)}")
             return None
     
     def image_to_base64(self, image) -> str:
-        """Convert OpenCV image to base64 string"""
+        """Convert RGB image to base64 string"""
         try:
             if image is not None and hasattr(image, 'shape'):
-                # Encode image as JPEG
-                _, buffer = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                # Convert numpy array to PIL Image
+                pil_image = Image.fromarray(image)
                 
                 # Convert to base64
-                image_base64 = base64.b64encode(buffer).decode('utf-8')
+                buffer = io.BytesIO()
+                pil_image.save(buffer, format='JPEG', quality=80)
+                image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
                 
                 return f"data:image/jpeg;base64,{image_base64}"
             else:
@@ -102,54 +92,37 @@ class PythonFaceDetector:
     
     def detect_faces(self, image) -> List[Dict]:
         """
-        Detect faces in image using OpenCV Haar Cascades with enhanced accuracy
+        Detect faces in image using face_recognition library
         Returns list of face dictionaries with coordinates, size, and quality
         """
         if not self.initialized or image is None:
             return []
         
         try:
-            # Convert to grayscale for face detection
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # face_recognition expects RGB images
+            if len(image.shape) == 3 and image.shape[2] == 3:
+                rgb_image = image
+            else:
+                # Convert to RGB if needed
+                rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             
-            # Apply histogram equalization for better contrast
-            gray = cv2.equalizeHist(gray)
-            
-            # Apply Gaussian blur to reduce noise
-            gray = cv2.GaussianBlur(gray, (3, 3), 0)
-            
-            # Detect faces with improved parameters for better accuracy
-            try:
-                faces = self.face_cascade.detectMultiScale(
-                    gray,
-                    scaleFactor=1.1,   # Safe scale factor to avoid OpenCV assertion error
-                    minNeighbors=4,    # Reduced threshold for easier detection
-                    minSize=(30, 30),  # Smaller minimum size for easier detection
-                    maxSize=(400, 400), # Increased maximum size for more flexibility
-                    flags=cv2.CASCADE_SCALE_IMAGE | cv2.CASCADE_DO_CANNY_PRUNING
-                )
-            except cv2.error as e:
-                logger.warning(f"OpenCV error with advanced parameters, falling back to basic detection: {str(e)}")
-                # Fallback to basic detection parameters
-                faces = self.face_cascade.detectMultiScale(
-                    gray,
-                    scaleFactor=1.1,
-                    minNeighbors=3,    # More lenient fallback
-                    minSize=(25, 25),  # Even smaller minimum size
-                    flags=cv2.CASCADE_SCALE_IMAGE
-                )
+            # Detect face locations using face_recognition
+            face_locations = face_recognition.face_locations(rgb_image, model="hog")
             
             face_data = []
             
-            for i, (x, y, w, h) in enumerate(faces):
-                # Extract face region
-                face_roi = gray[y:y+h, x:x+w]
+            for i, (top, right, bottom, left) in enumerate(face_locations):
+                # Convert face_recognition format (top, right, bottom, left) to (x, y, w, h)
+                x = left
+                y = top
+                w = right - left
+                h = bottom - top
                 
-                # Detect eyes in face region for validation
-                eyes = self.eye_cascade.detectMultiScale(face_roi)
+                # Extract face region for quality assessment
+                face_roi = rgb_image[top:bottom, left:right]
                 
-                # Calculate face quality based on size, position, and eye detection
-                quality = self.calculate_face_quality(x, y, w, h, len(eyes), image.shape)
+                # Calculate face quality based on size, position, and other factors
+                quality = self.calculate_face_quality(x, y, w, h, 2, image.shape)  # Assume 2 eyes for face_recognition
                 
                 face_info = {
                     'id': i,
@@ -158,7 +131,7 @@ class PythonFaceDetector:
                     'width': int(w),
                     'height': int(h),
                     'confidence': quality,
-                    'eyes_detected': len(eyes),
+                    'eyes_detected': 2,  # face_recognition assumes good face quality
                     'quality_score': quality
                 }
                 
@@ -304,6 +277,37 @@ class PythonFaceDetector:
             logger.error(f"Error smoothing detections: {str(e)}")
             return current_faces
     
+    def is_face_centered(self, face: Dict, image_shape: Tuple) -> bool:
+        """
+        Check if the face is properly centered in the image
+        Returns True if face is centered within acceptable bounds
+        """
+        try:
+            img_height, img_width = image_shape[:2]
+            x, y, w, h = face['x'], face['y'], face['width'], face['height']
+            
+            # Calculate face center
+            face_center_x = x + w / 2
+            face_center_y = y + h / 2
+            
+            # Calculate image center
+            image_center_x = img_width / 2
+            image_center_y = img_height / 2
+            
+            # Define acceptable deviation from center (30% of image dimensions)
+            max_deviation_x = img_width * 0.3
+            max_deviation_y = img_height * 0.3
+            
+            # Check if face is within acceptable bounds
+            x_deviation = abs(face_center_x - image_center_x)
+            y_deviation = abs(face_center_y - image_center_y)
+            
+            return x_deviation <= max_deviation_x and y_deviation <= max_deviation_y
+            
+        except Exception as e:
+            logger.error(f"Error checking face centering: {str(e)}")
+            return False
+    
     def reset_detection_history(self):
         """Reset the face detection history for a fresh start"""
         self.face_history = []
@@ -315,46 +319,172 @@ class PythonFaceDetector:
             'history_size': len(self.face_history),
             'max_history_size': self.history_size,
             'initialized': self.initialized,
-            'face_cascade_loaded': self.face_cascade is not None and not self.face_cascade.empty(),
-            'eye_cascade_loaded': self.eye_cascade is not None and not self.eye_cascade.empty()
+            'face_recognition_loaded': self.initialized,
+            'library': 'face_recognition'
         }
     
-    def generate_face_encoding(self, image, face_data: Dict) -> List[float]:
+    def generate_face_encoding_from_cropped_face(self, image, face_data: Dict) -> List[float]:
         """
-        Generate a face encoding based on face features using OpenCV
-        This creates a 128-dimensional encoding from the face region
+        Generate face encoding from cropped and preprocessed face region
+        This ensures only the processed face is used for encoding generation
+        """
+        try:
+            logger.info(f"Generating encoding from cropped face region")
+            
+            # First, try to generate encoding from original detection (as backup)
+            # This ensures we always have a valid encoding
+            original_encoding = self.generate_encoding_from_original_detection(image, face_data)
+            
+            # Then try to extract and preprocess face region for enhanced encoding
+            cropped_face = self.crop_and_preprocess_face(image, face_data)
+            if cropped_face is not None:
+                # Generate face encoding from the cropped and preprocessed face
+                face_encodings = face_recognition.face_encodings(cropped_face)
+                
+                if face_encodings:
+                    encoding = face_encodings[0].tolist()
+                    logger.info(f"Successfully generated encoding from cropped face (length: {len(encoding)})")
+                    return encoding
+                else:
+                    logger.warning("No face encoding generated from cropped face, using original detection encoding")
+                    return original_encoding
+            else:
+                logger.warning("Failed to crop face, using original detection encoding")
+                return original_encoding
+                
+        except Exception as e:
+            logger.error(f"Error generating face encoding from cropped face: {str(e)}")
+            # Fallback to original detection method
+            return self.generate_encoding_from_original_detection(image, face_data)
+    
+    def generate_encoding_from_original_detection(self, image, face_data: Dict) -> List[float]:
+        """
+        Generate encoding from original face detection coordinates (fallback method)
         """
         try:
             x, y, w, h = face_data['x'], face_data['y'], face_data['width'], face_data['height']
             
-            # Extract face region
-            face_roi = image[y:y+h, x:x+w]
+            # Convert face_recognition format (x, y, w, h) to (top, right, bottom, left)
+            top = y
+            right = x + w
+            bottom = y + h
+            left = x
             
-            # Resize to standard size
-            face_resized = cv2.resize(face_roi, (128, 128))
+            # Ensure image is RGB for face_recognition
+            if len(image.shape) == 3 and image.shape[2] == 3:
+                rgb_image = image
+            else:
+                rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             
-            # Convert to grayscale
-            face_gray = cv2.cvtColor(face_resized, cv2.COLOR_BGR2GRAY)
+            # Extract face encodings using face_recognition
+            face_encodings = face_recognition.face_encodings(
+                rgb_image, 
+                known_face_locations=[(top, right, bottom, left)]
+            )
             
-            # Flatten and normalize
-            face_flat = face_gray.flatten()
-            face_normalized = face_flat.astype(np.float32) / 255.0
+            if face_encodings:
+                encoding = face_encodings[0].tolist()
+                logger.info(f"Generated encoding from original detection (length: {len(encoding)})")
+                return encoding
+            else:
+                logger.warning("No face encoding generated from original detection")
+                return [0.0] * 128
+                
+        except Exception as e:
+            logger.error(f"Error generating encoding from original detection: {str(e)}")
+            return [0.0] * 128
+    
+    def crop_and_preprocess_face(self, image, face_data: Dict):
+        """
+        Crop face region with padding and apply preprocessing for optimal encoding
+        """
+        try:
+            x, y, w, h = face_data['x'], face_data['y'], face_data['width'], face_data['height']
+            img_height, img_width = image.shape[:2]
             
-            # Generate encoding (128-dimensional)
-            encoding = []
-            for i in range(128):  # 128-dimensional encoding
-                if i < len(face_normalized):
-                    encoding.append(float(face_normalized[i]))
-                else:
-                    # Pad with zeros if needed
-                    encoding.append(0.0)
+            # Validate face coordinates
+            if x < 0 or y < 0 or w <= 0 or h <= 0:
+                logger.error(f"Invalid face coordinates: x={x}, y={y}, w={w}, h={h}")
+                return None
             
-            return encoding
+            # Add 30% padding around face (same as frontend)
+            padding = 0.3
+            padded_x = max(0, int(x - w * padding))
+            padded_y = max(0, int(y - h * padding))
+            padded_w = min(img_width - padded_x, int(w * (1 + 2 * padding)))
+            padded_h = min(img_height - padded_y, int(h * (1 + 2 * padding)))
+            
+            # Ensure minimum face size for encoding
+            if padded_w < 50 or padded_h < 50:
+                logger.warning(f"Face too small for reliable encoding: {padded_w}x{padded_h}")
+                return None
+            
+            logger.info(f"Cropping face: original({x},{y},{w},{h}) -> padded({padded_x},{padded_y},{padded_w},{padded_h})")
+            logger.info(f"Image shape: {image.shape}, Crop bounds: [{padded_y}:{padded_y+padded_h}, {padded_x}:{padded_x+padded_w}]")
+            
+            # Crop the face region
+            cropped_face = image[padded_y:padded_y+padded_h, padded_x:padded_x+padded_w]
+            
+            # Validate cropped face
+            if cropped_face.size == 0:
+                logger.error("Cropped face is empty")
+                return None
+            
+            logger.info(f"Cropped face shape: {cropped_face.shape}")
+            
+            # Apply minimal preprocessing to avoid destroying face structure
+            processed_face = self.preprocess_face_for_encoding(cropped_face)
+            
+            return processed_face
             
         except Exception as e:
-            logger.error(f"Error generating face encoding: {str(e)}")
-            # Return zero encoding as fallback
-            return [0.0] * 128
+            logger.error(f"Error cropping and preprocessing face: {str(e)}")
+            return None
+    
+    def preprocess_face_for_encoding(self, face_image):
+        """
+        Apply minimal preprocessing to cropped face for optimal encoding generation
+        Keep preprocessing light to maintain face structure for face_recognition
+        """
+        try:
+            # Ensure image is RGB for face_recognition
+            if len(face_image.shape) == 3:
+                # Convert BGR to RGB for face_recognition
+                face_rgb = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+            else:
+                # Convert grayscale to RGB
+                face_rgb = cv2.cvtColor(face_image, cv2.COLOR_GRAY2RGB)
+            
+            # Apply very light histogram equalization only if image is too dark/bright
+            gray_version = cv2.cvtColor(face_rgb, cv2.COLOR_RGB2GRAY)
+            mean_brightness = np.mean(gray_version)
+            
+            if mean_brightness < 80 or mean_brightness > 180:
+                logger.info(f"Adjusting brightness from {mean_brightness}")
+                # Convert to YUV, equalize Y channel, convert back
+                face_yuv = cv2.cvtColor(face_rgb, cv2.COLOR_RGB2YUV)
+                face_yuv[:,:,0] = cv2.equalizeHist(face_yuv[:,:,0])
+                face_rgb = cv2.cvtColor(face_yuv, cv2.COLOR_YUV2RGB)
+            
+            logger.info(f"Preprocessed face shape: {face_rgb.shape}, brightness: {mean_brightness}")
+            return face_rgb
+            
+        except Exception as e:
+            logger.error(f"Error preprocessing face: {str(e)}")
+            # Return original image converted to RGB if preprocessing fails
+            try:
+                if len(face_image.shape) == 3:
+                    return cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+                else:
+                    return cv2.cvtColor(face_image, cv2.COLOR_GRAY2RGB)
+            except:
+                return face_image
+    
+    def generate_face_encoding(self, image, face_data: Dict) -> List[float]:
+        """
+        Generate face encoding - now uses cropped and preprocessed face
+        """
+        return self.generate_face_encoding_from_cropped_face(image, face_data)
     
     
     def process_image(self, base64_image: str) -> Dict:
@@ -375,21 +505,33 @@ class PythonFaceDetector:
             # Detect faces
             faces = self.detect_faces(image)
             
-            # Generate encodings for each face
+            # Generate encodings for each face using cropped and preprocessed face regions
             for face in faces:
-                face['encoding'] = self.generate_face_encoding(image, face)
+                face['encoding'] = self.generate_face_encoding_from_cropped_face(image, face)
             
-            # Determine status
+            # Determine status with strict validation
             face_count = len(faces)
             if face_count == 0:
                 status = 'no_faces'
-                message = 'No faces detected'
+                message = 'No face detected - please position your face in the center box'
             elif face_count == 1:
-                status = 'single_face'
-                message = 'Single face detected - ready for capture'
+                # Additional validation for single face
+                face = faces[0]
+                if face.get('quality_score', 0) < 0.4:
+                    status = 'poor_quality'
+                    message = 'Face quality too low - please improve lighting and center your face'
+                else:
+                    # Check if face is centered properly
+                    if self.is_face_centered(face, image.shape):
+                        status = 'single_face'
+                        message = 'Face detected and centered - ready for capture'
+                    else:
+                        status = 'not_centered'
+                        message = 'Please center your face in the detection box'
             else:
-                status = 'multiple_faces'
-                message = f'Multiple faces detected ({face_count}) - please ensure only one person is visible'
+                # Multiple faces - BLOCK EVERYTHING
+                status = 'multiple_faces_blocked'
+                message = f'BLOCKED: Multiple faces detected ({face_count}) - System locked until only one person is visible'
             
             return {
                 'success': True,

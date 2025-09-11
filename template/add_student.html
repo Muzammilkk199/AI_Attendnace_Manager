@@ -117,12 +117,12 @@
                 <h3 class="card-title">
                     <i class="fas fa-user-shield"></i> Face Registration
                 </h3>
-                <small class="text-muted">Capture your face for attendance system</small>
+                <small class="text-muted">Capture your face using advanced face recognition technology</small>
             </div>
             <div class="card-body">
                 <div class="face-detection-wrapper">
                     <div class="detection-header">
-                        <h4><i class="fas fa-camera"></i> Face Detection</h4>
+                        <h4><i class="fas fa-camera"></i> Face Recognition</h4>
                         <div class="detection-status" id="detectionStatus">
                             <span class="status-indicator" id="statusIndicator"></span>
                             <span class="status-text" id="statusText">Ready to start</span>
@@ -151,7 +151,11 @@
                                 <!-- Multiple faces warning -->
                                 <div class="multiple-faces-warning" id="multipleFacesWarning" style="display: none;">
                                     <i class="fas fa-exclamation-triangle"></i>
-                                    <span>Multiple faces detected!</span>
+                                    <div>
+                                        <strong>Multiple Faces Detected!</strong>
+                                        <br>
+                                        <small>Please ensure only one person is visible in the camera frame</small>
+                                    </div>
                                 </div>
                                 
                                 <!-- Detection guide -->
@@ -159,36 +163,58 @@
                                     <div class="guide-content">
                                         <i class="fas fa-user-circle"></i>
                                         <h5>Position Your Face</h5>
-                                        <p>Look directly at the camera</p>
+                                        <p>Center your face in the detection box</p>
                                         <ul>
                                             <li>Good lighting required</li>
-                                            <li>Only one person visible</li>
-                                            <li>Keep face centered</li>
+                                            <li>Only ONE person visible</li>
+                                            <li>Keep face centered in box</li>
+                                            <li>Look directly at camera</li>
                                         </ul>
+                                    </div>
+                                </div>
+                                
+                                <!-- Centered Face Detection Box -->
+                                <div class="centered-detection-box" id="centeredDetectionBox">
+                                    <div class="detection-frame">
+                                        <div class="frame-corners">
+                                            <div class="corner top-left"></div>
+                                            <div class="corner top-right"></div>
+                                            <div class="corner bottom-left"></div>
+                                            <div class="corner bottom-right"></div>
+                                        </div>
+                                        <div class="frame-center">
+                                            <i class="fas fa-user"></i>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
                         <div class="detection-controls">
-                            <button id="startDetection" class="btn btn-primary">
+                            <button type="button" id="startDetection" class="btn btn-primary">
                                 <i class="fas fa-play"></i> Start Camera
                             </button>
-                            <button id="captureFace" class="btn btn-success" disabled>
+                            <button type="button" id="captureFace" class="btn btn-success" disabled>
                                 <i class="fas fa-camera"></i> Capture
                             </button>
-                            <button id="retryCapture" class="btn btn-warning" disabled>
+                            <button type="button" id="retryCapture" class="btn btn-warning" disabled>
                                 <i class="fas fa-redo"></i> Retry
                             </button>
-                            <button id="stopDetection" class="btn btn-danger" disabled>
+                            <button type="button" id="stopDetection" class="btn btn-danger" disabled>
                                 <i class="fas fa-stop"></i> Stop
                             </button>
-                            <button id="testMultipleFaces" class="btn btn-info" onclick="testMultipleFaces()">
+                            <button type="button" id="testMultipleFaces" class="btn btn-info" onclick="testMultipleFaces()">
                                 <i class="fas fa-users"></i> Test Multiple
                             </button>
                         </div>
                         
-                        <div class="validation-messages" id="validationMessages"></div>
+                        <div class="validation-messages" id="validationMessages">
+                            <div class="log-controls" style="position: absolute; top: -30px; right: 0;">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearLogsBtn" onclick="clearErrorLogs()" style="font-size: 10px; padding: 2px 6px;">
+                                    <i class="fas fa-trash"></i> Clear Logs
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -204,18 +230,55 @@
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <h6>Captured Image:</h6>
-                                        <div id="capturedImageContainer" class="captured-image">
-                                            <img id="capturedImage" src="" alt="Captured Face" class="img-fluid rounded">
+                                        <h6>
+                                            <i class="fas fa-image text-success"></i> Captured Face Image:
+                                        </h6>
+                                        <div id="capturedImageContainer" class="captured-image text-center">
+                                            <div class="captured-face-container" style="display: inline-block; position: relative;">
+                                                <img id="capturedImage" src="" alt="Captured Face" 
+                                                     class="img-fluid rounded shadow-sm" 
+                                                     style="max-width: 200px; max-height: 250px; border: 2px solid #28a745; border-radius: 8px;">
+                                                <div class="face-type-badge" style="position: absolute; top: -10px; right: -10px; background: #28a745; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">
+                                                    ✂️
+                                                </div>
+                                            </div>
+                                            <div class="mt-2">
+                                                <small class="text-success">
+                                                    <i class="fas fa-check-circle"></i> Cropped & Preprocessed
+                                                </small>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <h6>Face Information:</h6>
                                         <div class="face-details">
-                                            <p><strong>Quality Score:</strong> <span id="qualityScore">-</span></p>
-                                            <p><strong>Dimensions:</strong> <span id="encodingDimensions">-</span></p>
-                                            <p><strong>Captured At:</strong> <span id="captureTime">-</span></p>
-                                            <p><strong>Status:</strong> <span class="badge badge-success">Ready for Registration</span></p>
+                                            <p><strong>Quality Score:</strong> <span id="qualityScore" class="badge badge-success">-</span></p>
+                                            <p><strong>Encoding:</strong> <span id="encodingDimensions" class="badge badge-info">-</span></p>
+                                            <p><strong>Captured At:</strong> <small id="captureTime" class="text-muted">-</small></p>
+                                            <p><strong>Status:</strong> <span class="badge badge-success">
+                                                <i class="fas fa-check"></i> Ready for Registration
+                                            </span></p>
+                                            <div class="processing-summary mt-3">
+                                                <h6 class="text-info">
+                                                    <i class="fas fa-cogs"></i> Processing Applied:
+                                                </h6>
+                                                <div class="row">
+                                                    <div class="col-6">
+                                                        <small class="text-muted">
+                                                            ✂️ Face Cropped<br>
+                                                            🎨 Grayscale<br>
+                                                            📈 Histogram Eq.
+                                                        </small>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <small class="text-muted">
+                                                            🔍 Noise Reduced<br>
+                                                            🔪 Edge Sharpened<br>
+                                                            ✨ Face Enhanced
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -337,7 +400,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Python Face Detection System -->
+<!-- Face Recognition System -->
 <script src="{% static 'js/python-face-detection.js' %}"></script>
 <script>
 class FaceDetectionManager {
@@ -586,34 +649,37 @@ class FaceDetectionManager {
         const hasFaceData = this.capturedFaceData !== null;
         const submitBtn = document.getElementById('submitBtn');
         
-        // Debug logging
-        console.log('Form validation:', {
-            hasRequiredFields,
-            hasFaceData,
-            requiredFields: requiredFields.map(field => {
-                const element = document.querySelector(`[name="${field}"]`);
-                return { field, value: element ? element.value.trim() : 'not found' };
-            }),
-            capturedFaceData: this.capturedFaceData
-        });
-        
-        submitBtn.disabled = !(hasRequiredFields && hasFaceData);
-        
-        if (!hasRequiredFields) {
-            submitBtn.title = 'Please fill in all required fields';
-        } else if (!hasFaceData) {
-            submitBtn.title = 'Please capture your face for registration';
-        } else {
-            submitBtn.title = 'Ready to submit';
+        if (submitBtn) {
+            submitBtn.disabled = !(hasRequiredFields && hasFaceData);
+            
+            if (!hasRequiredFields) {
+                submitBtn.title = 'Please fill in all required fields';
+            } else if (!hasFaceData) {
+                submitBtn.title = 'Please capture your face for registration';
+            } else {
+                submitBtn.title = 'Ready to submit';
+            }
         }
     }
     
     async handleFormSubmit(e) {
         e.preventDefault();
         
-        if (!this.capturedFaceData) {
+        // Check if face data is captured
+        const faceImageField = document.getElementById('faceImage');
+        const faceEncodingField = document.getElementById('faceEncoding');
+        
+        if (!faceImageField || !faceImageField.value || !faceEncodingField || !faceEncodingField.value) {
             this.updateStatus('Please capture your face before submitting.', 'error');
+            this.addErrorLog('Please capture your face before submitting.', 'error');
             return;
+        }
+        
+        // Show loading state
+        const submitBtn = document.getElementById('submitBtn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding Student...';
         }
         
         const formData = new FormData(document.getElementById('studentForm'));
@@ -630,26 +696,46 @@ class FaceDetectionManager {
         
         try {
             const response = await fetch('{% url "add_student" %}', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            }
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
             });
             
             const data = await response.json();
             console.log('Response from server:', data);
             
             if (data.success) {
-                alert('Student added successfully!');
-                this.resetForm();
-                window.location.href = '{% url "home" %}';
+                this.updateStatus('Student added successfully!', 'success');
+                this.addErrorLog('Student added successfully! Redirecting...', 'success');
+                
+                // Show success message
+                setTimeout(() => {
+                    alert('Student added successfully!');
+                    this.resetForm();
+                    window.location.href = '{% url "home" %}';
+                }, 1000);
             } else {
-                alert('Error: ' + (data.message || 'Failed to add student'));
+                this.updateStatus('Error: ' + (data.message || 'Failed to add student'), 'error');
+                this.addErrorLog('Error: ' + (data.message || 'Failed to add student'), 'error');
+                
+                // Reset submit button
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Add Student';
+                }
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred while adding the student');
+            this.updateStatus('An error occurred while adding the student', 'error');
+            this.addErrorLog('An error occurred while adding the student', 'error');
+            
+            // Reset submit button
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-save"></i> Add Student';
+            }
         }
     }
     
@@ -698,16 +784,30 @@ function testSubmit() {
     }
     
     // Set mock face data
-    document.getElementById('faceImage').value = 'data:image/jpeg;base64,test';
-    document.getElementById('faceEncoding').value = JSON.stringify(mockFaceEncoding);
+    const faceImageField = document.getElementById('faceImage');
+    const faceEncodingField = document.getElementById('faceEncoding');
+    
+    if (faceImageField) {
+        faceImageField.value = 'data:image/jpeg;base64,test';
+    }
+    if (faceEncodingField) {
+        faceEncodingField.value = JSON.stringify(mockFaceEncoding);
+    }
     
     // Update the face detection manager
-    if (window.faceDetectionManager) {
-        window.faceDetectionManager.capturedFaceData = {
+    if (window.pythonFaceDetection) {
+        window.pythonFaceDetection.faceData = {
             image: 'data:image/jpeg;base64,test',
             encoding: mockFaceEncoding
         };
-        window.faceDetectionManager.updateSubmitButton();
+        window.pythonFaceDetection.isCaptured = true;
+        window.pythonFaceDetection.enableSubmitButton();
+    }
+    
+    // Show face data display
+    const faceDataDisplay = document.getElementById('faceDataDisplay');
+    if (faceDataDisplay) {
+        faceDataDisplay.style.display = 'block';
     }
     
     console.log('Test face data set. Submit button should now be enabled.');
@@ -741,8 +841,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Update form validation when face data is captured
     window.updateFormValidation = function() {
-        const faceData = document.getElementById('face_encoding').value;
-        const faceImage = document.getElementById('face_image').value;
+        const faceDataEl = document.getElementById('faceEncoding');
+        const faceImageEl = document.getElementById('faceImage');
+        const faceData = faceDataEl ? faceDataEl.value : '';
+        const faceImage = faceImageEl ? faceImageEl.value : '';
         
         if (faceData && faceImage) {
             // Show face data display
@@ -814,7 +916,12 @@ function updateSubmitButton() {
         return element && element.value.trim();
     });
     
-    const hasFaceData = document.getElementById('face_encoding').value.trim() !== '';
+    // Check for face data - use the correct element ID
+    const faceEncodingElement = document.getElementById('faceEncoding');
+    const faceImageElement = document.getElementById('faceImage');
+    const hasFaceData = faceEncodingElement && faceEncodingElement.value.trim() !== '' && 
+                       faceImageElement && faceImageElement.value.trim() !== '';
+    
     const submitBtn = document.getElementById('submitBtn');
     
     if (submitBtn) {
@@ -860,10 +967,10 @@ updateSubmitButton();
 
 // Update form validation when face data is captured
 window.updateFormValidation = function() {
-    const faceData = document.getElementById('face_encoding').value;
-    const faceImage = document.getElementById('face_image').value;
+    const faceData = document.getElementById('faceEncoding');
+    const faceImage = document.getElementById('faceImage');
     
-    if (faceData && faceImage) {
+    if (faceData && faceImage && faceData.value && faceImage.value) {
         // Show face data display
         const faceDataDisplay = document.getElementById('faceDataDisplay');
         if (faceDataDisplay) {
@@ -878,7 +985,7 @@ window.updateFormValidation = function() {
             if (qualityScore) qualityScore.textContent = '85%'; // Simulated quality
             if (encodingDimensions) encodingDimensions.textContent = '128 dimensions';
             if (captureTime) captureTime.textContent = new Date().toLocaleString();
-            if (capturedImage && faceImage) capturedImage.src = faceImage;
+            if (capturedImage && faceImage.value) capturedImage.src = faceImage.value;
         }
     }
     
@@ -888,7 +995,7 @@ window.updateFormValidation = function() {
 
 // Test function for multiple face detection
 function testMultipleFaces() {
-    if (window.improvedFaceDetection) {
+    if (window.pythonFaceDetection) {
         // Force multiple face detection for testing
         const testFaces = [
             {
@@ -907,15 +1014,136 @@ function testMultipleFaces() {
             }
         ];
         
-        window.improvedFaceDetection.showMultipleFaceBoxes(testFaces);
-        window.improvedFaceDetection.showMultipleFacesWarning();
-        window.improvedFaceDetection.faceCount = 2;
-        window.improvedFaceDetection.updateFaceCount();
+        window.pythonFaceDetection.showMultipleFaceBoxes(testFaces);
+        window.pythonFaceDetection.showMultipleFacesWarning();
+        window.pythonFaceDetection.faceCount = 2;
+        window.pythonFaceDetection.updateFaceCount();
+        window.pythonFaceDetection.addErrorLog('Multiple faces detected (2). Please ensure only one person is visible in the frame', 'error');
         
         console.log('Testing multiple face detection with 2 faces');
     } else {
         alert('Face detection system not initialized yet. Please start the camera first.');
     }
 }
+
+// Clear error logs function
+function clearErrorLogs() {
+    if (window.pythonFaceDetection) {
+        window.pythonFaceDetection.clearErrorLogs();
+    }
+}
+
+// Global form submission handler with comprehensive logging
+document.addEventListener('DOMContentLoaded', function() {
+    const studentForm = document.getElementById('studentForm');
+    if (studentForm) {
+        console.log('📝 FORM HANDLER ATTACHED - Student form found and ready');
+        studentForm.addEventListener('submit', async function(e) {
+            console.log('🚀 FORM SUBMISSION INITIATED - Add Student button clicked');
+            e.preventDefault();
+            
+            // Check if face data is captured
+            const faceImageField = document.getElementById('faceImage');
+            const faceEncodingField = document.getElementById('faceEncoding');
+            
+            console.log('🔍 VALIDATING FORM DATA:', {
+                faceImageField: !!faceImageField,
+                faceImageValue: faceImageField?.value?.length || 0,
+                faceEncodingField: !!faceEncodingField,
+                faceEncodingValue: faceEncodingField?.value?.length || 0
+            });
+            
+            if (!faceImageField || !faceImageField.value || !faceEncodingField || !faceEncodingField.value) {
+                console.log('❌ FORM VALIDATION FAILED - Missing face data');
+                if (window.pythonFaceDetection) {
+                    window.pythonFaceDetection.addErrorLog('Cannot submit: face data missing. Please capture your face first.', 'error');
+                }
+                alert('Please capture your face before submitting.');
+                return;
+            }
+            
+            // Show loading state
+            console.log('⏳ SHOWING LOADING STATE...');
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding Student...';
+                console.log('🔄 Submit button set to loading state');
+            }
+            
+            if (window.pythonFaceDetection) {
+                window.pythonFaceDetection.addErrorLog('Submitting student data...', 'info');
+            }
+            
+            const formData = new FormData(this);
+            console.log('📦 FORM DATA PREPARED - Sending to server...');
+            
+            // Log form data for debugging
+            console.log('📋 Form data contents:');
+            for (let [key, value] of formData.entries()) {
+                if (key === 'face_encoding' || key === 'face_image') {
+                    console.log(`  ${key}: ${typeof value === 'string' ? value.substring(0, 50) + '...' : value} (${typeof value === 'string' ? value.length : 'N/A'} chars)`);
+                } else {
+                    console.log(`  ${key}: ${value}`);
+                }
+            }
+            
+            try {
+                console.log('🌐 SENDING REQUEST TO SERVER...');
+                const response = await fetch('{% url "add_student" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                });
+                
+                console.log('📡 SERVER RESPONSE RECEIVED - Status:', response.status);
+                const data = await response.json();
+                console.log('📊 Response data:', data);
+                
+                if (data.success) {
+                    console.log('✅ STUDENT ADDED SUCCESSFULLY!');
+                    if (window.pythonFaceDetection) {
+                        window.pythonFaceDetection.addErrorLog('Student added successfully! Redirecting...', 'success');
+                    }
+                    alert('Student added successfully!');
+                    this.reset();
+                    console.log('🏠 Redirecting to home page...');
+                    window.location.href = '{% url "home" %}';
+                } else {
+                    console.error('❌ SUBMISSION FAILED:', data.message || 'Unknown error');
+                    if (window.pythonFaceDetection) {
+                        window.pythonFaceDetection.addErrorLog('Submission failed: ' + (data.message || 'Unknown error'), 'error');
+                    }
+                    alert('Error: ' + (data.message || 'Failed to add student'));
+                    
+                    // Reset submit button
+                    console.log('🔄 Resetting submit button...');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fas fa-save"></i> Add Student';
+                    }
+                }
+            } catch (error) {
+                console.error('❌ SUBMISSION ERROR:', error);
+                if (window.pythonFaceDetection) {
+                    window.pythonFaceDetection.addErrorLog('Network error during submission: ' + error.message, 'error');
+                }
+                alert('An error occurred while adding the student');
+                
+                // Reset submit button
+                console.log('🔄 Resetting submit button after error...');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Add Student';
+                }
+            }
+        });
+    } else {
+        console.error('❌ FORM HANDLER FAILED - Student form not found');
+    }
+});
 </script>
 {% endblock %}
+d ..
