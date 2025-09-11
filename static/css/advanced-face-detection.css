@@ -118,18 +118,20 @@
 
 .face-box {
     position: absolute;
-    border: 3px solid #00ff00;
-    border-radius: 8px;
-    background: rgba(0, 255, 0, 0.1);
-    box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
-    transition: all 0.3s ease;
+    border: 2px solid #00ff00;
+    border-radius: 4px;
+    background: rgba(0, 255, 0, 0.05);
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+    transition: all 0.2s ease;
+    min-width: 80px;
+    min-height: 80px;
 }
 
 .face-box.pulse {
-    animation: faceBoxPulse 1.5s ease-in-out infinite;
+    animation: faceBoxPulse 1s ease-in-out infinite;
 }
 
-.box-corners {
+.esp-corners {
     position: absolute;
     top: 0;
     left: 0;
@@ -137,91 +139,141 @@
     height: 100%;
 }
 
-.box-corners .corner {
+.esp-corners .corner {
     position: absolute;
-    width: 20px;
-    height: 20px;
-    border: 3px solid #00ff00;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #00ff00;
 }
 
-.box-corners .corner.top-left {
-    top: -3px;
-    left: -3px;
+.esp-corners .corner.top-left {
+    top: -2px;
+    left: -2px;
     border-right: none;
     border-bottom: none;
 }
 
-.box-corners .corner.top-right {
-    top: -3px;
-    right: -3px;
+.esp-corners .corner.top-right {
+    top: -2px;
+    right: -2px;
     border-left: none;
     border-bottom: none;
 }
 
-.box-corners .corner.bottom-left {
-    bottom: -3px;
-    left: -3px;
+.esp-corners .corner.bottom-left {
+    bottom: -2px;
+    left: -2px;
     border-right: none;
     border-top: none;
 }
 
-.box-corners .corner.bottom-right {
-    bottom: -3px;
-    right: -3px;
+.esp-corners .corner.bottom-right {
+    bottom: -2px;
+    right: -2px;
     border-left: none;
     border-top: none;
 }
 
 .face-info {
     position: absolute;
-    top: -40px;
+    top: -35px;
     left: 0;
     right: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
     background: rgba(0, 0, 0, 0.8);
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 11px;
     color: white;
-}
-
-.face-quality {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.quality-label {
-    font-weight: 600;
-}
-
-.quality-bar {
-    width: 60px;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.quality-fill {
-    height: 100%;
-    background: #28a745;
-    transition: width 0.3s ease;
-    border-radius: 3px;
-}
-
-.quality-value {
-    font-weight: 600;
-    min-width: 35px;
 }
 
 .face-count {
     font-weight: 600;
-    padding: 4px 8px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(40, 167, 69, 0.8);
+    color: white;
+}
+
+.quality-score {
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(0, 123, 255, 0.8);
+    color: white;
+}
+
+.multiple-faces-warning {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(220, 53, 69, 0.9);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    animation: warningPulse 1s ease-in-out infinite;
+}
+
+.multiple-faces-warning i {
+    display: block;
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+.multiple-faces-warning span {
+    font-size: 14px;
+}
+
+/* Multiple face boxes */
+.multiple-face {
+    position: absolute;
+    border: 2px solid #ff0000;
     border-radius: 4px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 0, 0, 0.05);
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+    transition: all 0.2s ease;
+    min-width: 80px;
+    min-height: 80px;
+    animation: multipleFacePulse 1s ease-in-out infinite;
+}
+
+.multiple-face .esp-corners .corner {
+    border-color: #ff0000;
+}
+
+.multiple-face .face-info {
+    background: rgba(0, 0, 0, 0.9);
+}
+
+.multiple-face .face-count {
+    background: rgba(255, 0, 0, 0.8);
+    color: white;
+}
+
+.multiple-face .quality-score {
+    background: rgba(255, 165, 0, 0.8);
+    color: white;
+}
+
+@keyframes multipleFacePulse {
+    0% { 
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+        border-color: #ff0000;
+    }
+    50% { 
+        box-shadow: 0 0 25px rgba(255, 0, 0, 0.6);
+        border-color: #ff0000;
+    }
+    100% { 
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+        border-color: #ff0000;
+    }
 }
 
 .detection-guide {
@@ -361,16 +413,31 @@
 
 @keyframes faceBoxPulse {
     0% { 
-        box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
         border-color: #00ff00;
     }
     50% { 
-        box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
+        box-shadow: 0 0 25px rgba(0, 255, 0, 0.6);
         border-color: #00ff00;
     }
     100% { 
-        box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
         border-color: #00ff00;
+    }
+}
+
+@keyframes warningPulse {
+    0% { 
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.9;
+    }
+    50% { 
+        transform: translate(-50%, -50%) scale(1.05);
+        opacity: 1;
+    }
+    100% { 
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.9;
     }
 }
 

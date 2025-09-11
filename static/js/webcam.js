@@ -104,7 +104,7 @@ class WebcamManager {
         context.drawImage(this.video, 0, 0);
         return this.canvas.toDataURL('image/jpeg', 0.8);
     }
-    
+                
     async processAttendance(studentId, imageData) {
         try {
             const formData = new FormData();

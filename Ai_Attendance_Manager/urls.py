@@ -4,7 +4,8 @@ from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import render
-import Ai_Attendance_Manager.controller as controller   
+import Ai_Attendance_Manager.controller as controller
+from Ai_Attendance_Manager_Models.face_detection_views import face_detection_api, face_detection_status   
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -28,6 +29,10 @@ urlpatterns = [
     path('api/attendance/details/<int:attendance_id>/', controller.attendance_details, name='attendance_details'),
     path('api/test-mongodb/', controller.test_mongodb, name='test_mongodb'),
     path('api/test-student/', controller.test_student_creation, name='test_student_creation'),
+    
+    # Python Face Detection API
+    path('api/face-detection/', face_detection_api, name='face_detection_api'),
+    path('api/face-detection/status/', face_detection_status, name='face_detection_status'),
     
     # legacy support
     path('Add_Student/', controller.add_student, name='Add_Student'),

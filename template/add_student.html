@@ -110,58 +110,60 @@
         </div>
     </div>
     
-    <!-- Advanced Face Detection Section -->
+    <!-- Face Detection Section -->
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">
-                    <i class="fas fa-user-shield"></i> Advanced Face Registration System
+                    <i class="fas fa-user-shield"></i> Face Registration
                 </h3>
-                <small class="text-muted">Professional ESP-style face detection with comprehensive validation</small>
+                <small class="text-muted">Capture your face for attendance system</small>
             </div>
             <div class="card-body">
                 <div class="face-detection-wrapper">
                     <div class="detection-header">
-                        <h4><i class="fas fa-camera"></i> Face Registration System</h4>
+                        <h4><i class="fas fa-camera"></i> Face Detection</h4>
                         <div class="detection-status" id="detectionStatus">
                             <span class="status-indicator" id="statusIndicator"></span>
-                            <span class="status-text" id="statusText">Initializing...</span>
+                            <span class="status-text" id="statusText">Ready to start</span>
                         </div>
                     </div>
                     
                     <div class="camera-container">
                         <div class="video-wrapper">
-                            <video id="faceVideo" autoplay muted playsinline style="width: 100%; height: 400px; object-fit: cover; background: #000;"></video>
+                            <video id="faceVideo" autoplay muted playsinline></video>
                             <canvas id="faceCanvas" style="display: none;"></canvas>
                             <div class="detection-overlay" id="detectionOverlay">
+                                <!-- Small ESP-style face detection box -->
                                 <div class="face-box" id="faceBox" style="display: none;">
-                                    <div class="box-corners">
+                                    <div class="esp-corners">
                                         <div class="corner top-left"></div>
                                         <div class="corner top-right"></div>
                                         <div class="corner bottom-left"></div>
                                         <div class="corner bottom-right"></div>
                                     </div>
                                     <div class="face-info">
-                                        <div class="face-quality">
-                                            <span class="quality-label">Quality:</span>
-                                            <div class="quality-bar">
-                                                <div class="quality-fill" id="qualityFill"></div>
-                                            </div>
-                                            <span class="quality-value" id="qualityValue">0%</span>
-                                        </div>
-                                        <div class="face-count" id="faceCount">Faces: 0</div>
+                                        <span class="face-count" id="faceCount">1 Face</span>
+                                        <span class="quality-score" id="qualityScore">85%</span>
                                     </div>
                                 </div>
+                                
+                                <!-- Multiple faces warning -->
+                                <div class="multiple-faces-warning" id="multipleFacesWarning" style="display: none;">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span>Multiple faces detected!</span>
+                                </div>
+                                
+                                <!-- Detection guide -->
                                 <div class="detection-guide" id="detectionGuide">
                                     <div class="guide-content">
                                         <i class="fas fa-user-circle"></i>
                                         <h5>Position Your Face</h5>
-                                        <p>Look directly at the camera and ensure your face is clearly visible</p>
+                                        <p>Look directly at the camera</p>
                                         <ul>
-                                            <li>Good lighting is essential</li>
-                                            <li>Remove glasses if possible</li>
-                                            <li>Keep a neutral expression</li>
-                                            <li>Only one person should be visible</li>
+                                            <li>Good lighting required</li>
+                                            <li>Only one person visible</li>
+                                            <li>Keep face centered</li>
                                         </ul>
                                     </div>
                                 </div>
@@ -169,23 +171,20 @@
                         </div>
                         
                         <div class="detection-controls">
-                            <button id="testJsBtn" class="btn btn-secondary">
-                                <i class="fas fa-code"></i> Test JS
-                            </button>
-                            <button id="testCameraBtn" class="btn btn-info">
-                                <i class="fas fa-video"></i> Test Camera
-                            </button>
                             <button id="startDetection" class="btn btn-primary">
-                                <i class="fas fa-play"></i> Start Detection
+                                <i class="fas fa-play"></i> Start Camera
                             </button>
                             <button id="captureFace" class="btn btn-success" disabled>
-                                <i class="fas fa-camera"></i> Capture Face
+                                <i class="fas fa-camera"></i> Capture
                             </button>
                             <button id="retryCapture" class="btn btn-warning" disabled>
                                 <i class="fas fa-redo"></i> Retry
                             </button>
                             <button id="stopDetection" class="btn btn-danger" disabled>
                                 <i class="fas fa-stop"></i> Stop
+                            </button>
+                            <button id="testMultipleFaces" class="btn btn-info" onclick="testMultipleFaces()">
+                                <i class="fas fa-users"></i> Test Multiple
                             </button>
                         </div>
                         
@@ -338,7 +337,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/advanced-face-detection.js' %}"></script>
+<!-- Python Face Detection System -->
+<script src="{% static 'js/python-face-detection.js' %}"></script>
 <script>
 class FaceDetectionManager {
     constructor() {
@@ -805,5 +805,117 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Form validation and utility functions
+function updateSubmitButton() {
+    const requiredFields = ['first_name', 'last_name', 'student_id'];
+    const hasRequiredFields = requiredFields.every(field => {
+        const element = document.querySelector(`[name="${field}"]`);
+        return element && element.value.trim();
+    });
+    
+    const hasFaceData = document.getElementById('face_encoding').value.trim() !== '';
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (submitBtn) {
+        submitBtn.disabled = !(hasRequiredFields && hasFaceData);
+        
+        if (!hasRequiredFields) {
+            submitBtn.title = 'Please fill in all required fields';
+        } else if (!hasFaceData) {
+            submitBtn.title = 'Please capture your face for registration';
+        } else {
+            submitBtn.title = 'Ready to submit';
+        }
+    }
+}
+
+// Auto-generate student ID
+const studentIdInput = document.getElementById('studentId');
+if (studentIdInput) {
+    studentIdInput.addEventListener('blur', function() {
+        if (!this.value.trim()) {
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            if (firstName && lastName) {
+                const generatedId = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase() + 
+                                  Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                this.value = generatedId;
+            }
+        }
+    });
+}
+
+// Real-time validation
+const inputs = document.querySelectorAll('input, textarea, select');
+inputs.forEach(input => {
+    input.addEventListener('input', () => {
+        input.classList.remove('is-invalid');
+        updateSubmitButton();
+    });
+});
+
+// Initialize submit button state
+updateSubmitButton();
+
+// Update form validation when face data is captured
+window.updateFormValidation = function() {
+    const faceData = document.getElementById('face_encoding').value;
+    const faceImage = document.getElementById('face_image').value;
+    
+    if (faceData && faceImage) {
+        // Show face data display
+        const faceDataDisplay = document.getElementById('faceDataDisplay');
+        if (faceDataDisplay) {
+            faceDataDisplay.style.display = 'block';
+            
+            // Update face data information
+            const qualityScore = document.getElementById('qualityScore');
+            const encodingDimensions = document.getElementById('encodingDimensions');
+            const captureTime = document.getElementById('captureTime');
+            const capturedImage = document.getElementById('capturedImage');
+            
+            if (qualityScore) qualityScore.textContent = '85%'; // Simulated quality
+            if (encodingDimensions) encodingDimensions.textContent = '128 dimensions';
+            if (captureTime) captureTime.textContent = new Date().toLocaleString();
+            if (capturedImage && faceImage) capturedImage.src = faceImage;
+        }
+    }
+    
+    // Update submit button
+    updateSubmitButton();
+};
+
+// Test function for multiple face detection
+function testMultipleFaces() {
+    if (window.improvedFaceDetection) {
+        // Force multiple face detection for testing
+        const testFaces = [
+            {
+                x: 100,
+                y: 100,
+                width: 120,
+                height: 120,
+                confidence: 0.85
+            },
+            {
+                x: 300,
+                y: 150,
+                width: 110,
+                height: 110,
+                confidence: 0.78
+            }
+        ];
+        
+        window.improvedFaceDetection.showMultipleFaceBoxes(testFaces);
+        window.improvedFaceDetection.showMultipleFacesWarning();
+        window.improvedFaceDetection.faceCount = 2;
+        window.improvedFaceDetection.updateFaceCount();
+        
+        console.log('Testing multiple face detection with 2 faces');
+    } else {
+        alert('Face detection system not initialized yet. Please start the camera first.');
+    }
+}
 </script>
 {% endblock %}
