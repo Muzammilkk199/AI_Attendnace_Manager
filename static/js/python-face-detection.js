@@ -26,6 +26,9 @@ class PythonFaceDetection {
         this.isCaptured = false;
         this.apiEndpoint = '/api/face-detection/';
         this.statusEndpoint = '/api/face-detection/status/';
+        this.recognitionEndpoint = '/api/recognize-student/';
+        this.attendanceEndpoint = '/api/attendance/initialize/';
+        this.summaryEndpoint = '/api/attendance/summary/';
         this.errorLogs = []; // Store error logs
         this.maxLogs = 5; // Maximum number of logs to display
         this.isScreenLocked = false; // Screen lock state
@@ -37,18 +40,31 @@ class PythonFaceDetection {
         this.lastStatus = 'unknown';
         this.lastMessage = '';
         this.lastFaces = [];
+        this.autoCaptureTimeout = null; // For auto-capture functionality
+        this.faceSessionStartTime = null; // Track when face session started
+        this.maxSessionDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
+        this.sessionWarningTime = 4 * 60 * 1000; // 4 minutes warning
+        this.sessionTimer = null; // Session timeout timer
         
-        // Detection parameters - optimized for face_recognition
-        this.minFaceSize = 30; // face_recognition can detect smaller faces
-        this.maxFaceSize = 500;
-        this.qualityThreshold = 0.3; // face_recognition is more accurate, can use lower threshold
-        this.stabilityFrames = 2; // Reduced frames for more responsive detection
+        // STRICT Detection parameters for accuracy
+        this.minFaceSize = 50; // Increased minimum for better quality
+        this.maxFaceSize = 400; // Reduced maximum for better quality
+        this.qualityThreshold = 0.7; // Much stricter quality requirement
+        this.stabilityFrames = 3; // Reduced frames for faster but stable detection
         this.stableFrames = 0;
-        this.detectionFPS = 5; // Reduced FPS for better performance with face_recognition
+        this.detectionFPS = 1; // Lower FPS to prevent broken pipes
         this.lastFacePosition = null; // For smooth tracking
         this.targetFacePosition = null; // Target position for interpolation
         this.currentFacePosition = null; // Current interpolated position
         this.interpolationSpeed = 0.15; // How fast to interpolate (0.1 = slow, 0.3 = fast)
+        this.lastRequestTime = 0; // Rate limiting for requests
+        
+        // Automatic attendance settings
+        this.autoAttendanceEnabled = true;
+        this.attendanceMarked = false;
+        this.lastRecognizedStudent = null;
+        this.attendanceCooldown = 2000; // 2 seconds cooldown between attendance marks (reduced for testing)
+        this.lastAttendanceTime = 0;
         
         this.init();
     }
@@ -144,13 +160,29 @@ class PythonFaceDetection {
         this.validationMessages = document.getElementById('validationMessages');
         this.centeredDetectionBox = document.getElementById('centeredDetectionBox');
         
-        console.log('PythonFaceDetection: UI elements found:', {
+        console.log('🔍 PythonFaceDetection: UI elements found:', {
             video: !!this.video,
             canvas: !!this.canvas,
+            ctx: !!this.ctx,
+            faceBox: !!this.faceBox,
+            multipleFacesWarning: !!this.multipleFacesWarning,
+            detectionGuide: !!this.detectionGuide,
+            statusElement: !!this.statusElement,
             startButton: !!this.startButton,
-            captureButton: !!this.captureButton,
-            statusElement: !!this.statusElement
+            captureButton: !!this.captureButton
         });
+        
+        // Test face box visibility
+        if (this.faceBox) {
+            console.log('📦 Face box element details:', {
+                id: this.faceBox.id,
+                className: this.faceBox.className,
+                currentDisplay: this.faceBox.style.display,
+                offsetParent: !!this.faceBox.offsetParent
+            });
+        } else {
+            console.error('❌ Face box element NOT FOUND - this will cause display issues!');
+        }
         
         // Initialize status
         if (this.statusElement) {
@@ -184,6 +216,22 @@ class PythonFaceDetection {
             console.log('🛑 STOP BUTTON CLICKED - Stopping face detection');
             this.addErrorLog('Stop button pressed - ending detection session...', 'info');
             this.stopDetection();
+        });
+        
+        // Test auto recognition button
+        const testAutoRecognitionButton = document.getElementById('testAutoRecognition');
+        testAutoRecognitionButton?.addEventListener('click', () => {
+            console.log('🤖 TEST AUTO RECOGNITION BUTTON CLICKED');
+            this.addErrorLog('Testing automatic recognition...', 'info');
+            this.performAutomaticRecognition();
+        });
+        
+        // Initialize daily attendance button
+        const initializeDailyAttendanceButton = document.getElementById('initializeDailyAttendance');
+        initializeDailyAttendanceButton?.addEventListener('click', () => {
+            console.log('📅 INITIALIZE DAILY ATTENDANCE BUTTON CLICKED');
+            this.addErrorLog('Initializing daily attendance...', 'info');
+            this.initializeDailyAttendance();
         });
     }
     
@@ -332,7 +380,7 @@ class PythonFaceDetection {
             console.log(`🌐 Network request attempt ${retryCount + 1}/${maxRetries + 1}`);
             
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
             
             const response = await fetch(this.apiEndpoint, {
                 method: 'POST',
@@ -373,14 +421,25 @@ class PythonFaceDetection {
         } catch (error) {
             console.error(`❌ Network error (attempt ${retryCount + 1}):`, error);
             
-            // Check if it's a recoverable network error
+            // Handle AbortError separately (request cancellation/timeout)
+            if (error.name === 'AbortError') {
+                console.log('🔄 Request was cancelled or timed out - this is normal for rapid detection');
+                return {
+                    success: false,
+                    error: 'Request cancelled',
+                    faces: [],
+                    face_count: 0,
+                    network_error: false // Don't treat cancellation as network error
+                };
+            }
+            
+            // Check if it's a recoverable network error (exclude AbortError)
             const isNetworkError = error.name === 'TypeError' || 
                                  error.message.includes('Failed to fetch') ||
                                  error.message.includes('ERR_NETWORK_CHANGED') ||
                                  error.message.includes('ERR_INTERNET_DISCONNECTED') ||
                                  error.message.includes('ERR_CONNECTION_RESET') ||
-                                 error.message.includes('ERR_CONNECTION_REFUSED') ||
-                                 error.name === 'AbortError';
+                                 error.message.includes('ERR_CONNECTION_REFUSED');
             
             // Special handling for server down
             if (error.message.includes('ERR_CONNECTION_REFUSED')) {
@@ -441,13 +500,27 @@ class PythonFaceDetection {
             return;
         }
         
+        // Skip if we're in retry mode
+        if (this.isRetrying) {
+            console.log('⏭️ Skipping frame - retry in progress');
+            return;
+        }
+        
+        // Add delay between requests to prevent server overload and broken pipes
+        const now = Date.now();
+        if (this.lastRequestTime && (now - this.lastRequestTime) < 5000) {
+            // Silently skip - no console spam
+            return;
+        }
+        this.lastRequestTime = now;
+        
         try {
             // Draw current frame to canvas
             this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
             
             // Convert canvas to base64
             const base64Image = this.canvas.toDataURL('image/jpeg', 0.8);
-            console.log('🖼️ FRAME CAPTURED - Sending to face recognition backend...');
+            console.log('🖼️ FRAME CAPTURED - Sending to face recognition backend (5s interval)...');
             
             // Send to face recognition backend for face detection with retry logic
             this.pendingRequest = this.sendDetectionRequest(base64Image);
@@ -455,6 +528,12 @@ class PythonFaceDetection {
             this.pendingRequest = null;
             
             if (result.success) {
+                console.log('✅ Face detection successful:', {
+                    status: result.status,
+                    faces: result.face_count,
+                    message: result.message
+                });
+                
                 // Store face encodings from detection results for instant capture
                 if (result.faces && result.faces.length > 0) {
                     console.log('💾 Caching face encodings for instant capture...');
@@ -464,6 +543,8 @@ class PythonFaceDetection {
                         }
                     });
                 }
+                
+                // Process detection results and update UI
                 this.processDetectionResults(result);
             } else {
                 console.error('❌ FACE DETECTION FAILED:', result.error);
@@ -472,6 +553,11 @@ class PythonFaceDetection {
                 } else {
                     this.addErrorLog('Detection error: ' + result.error, 'error');
                 }
+                
+                // Clear any existing face displays
+                this.hideAllFaceBoxes();
+                this.faceCount = 0;
+                this.lastFaces = [];
             }
             
         } catch (error) {
@@ -509,24 +595,46 @@ class PythonFaceDetection {
             this.updateQualityIndicator();
                 this.addErrorLog('No face detected. Center your face within the box.', 'warning');
                 this.disableCapture();
+                // Stop session timer when no face detected
+                this.stopFaceSession();
                 break;
                 
             case 'single_face':
                 console.log('✅ SINGLE FACE DETECTED - Quality:', faces[0]?.quality_score || 'unknown');
+                console.log('📊 Face data:', faces[0]);
                 this.unlockScreen();
-            const face = faces[0];
+                const face = faces[0];
+                console.log('🎯 About to show centered face box...');
                 this.showCenteredFaceBox(face);
             this.hideMultipleFacesWarning();
             this.faceQuality = face.quality_score || 0.8;
             this.updateQualityIndicator();
+            
+            // Start session timer for security (prevent proxy attacks)
+            this.startFaceSession();
             
             // Check for stable detection
             if (this.lastFaceCount === 1) {
                 this.stableFrames++;
                     console.log(`🎯 STABILITY CHECK - Stable frames: ${this.stableFrames}/${this.stabilityFrames}`);
                 if (this.stableFrames >= this.stabilityFrames) {
-                        console.log('🎉 FACE STABLE - Enabling capture');
+                        console.log('🎉 FACE STABLE - Ready for capture');
                     this.enableCapture();
+                    
+                    // Perform automatic recognition and attendance marking
+                    if (this.autoAttendanceEnabled && !this.attendanceMarked) {
+                        console.log('🤖 AUTOMATIC ATTENDANCE: Triggering recognition...');
+                        console.log('🔍 Auto attendance enabled:', this.autoAttendanceEnabled);
+                        console.log('🔍 Attendance marked:', this.attendanceMarked);
+                        console.log('🔍 Last faces available:', this.lastFaces && this.lastFaces.length > 0);
+                        this.performAutomaticRecognition();
+                    } else {
+                        console.log('🚫 AUTOMATIC ATTENDANCE SKIPPED:', {
+                            autoAttendanceEnabled: this.autoAttendanceEnabled,
+                            attendanceMarked: this.attendanceMarked,
+                            hasLastFaces: this.lastFaces && this.lastFaces.length > 0
+                        });
+                    }
                 }
             } else {
                 this.stableFrames = 0;
@@ -593,25 +701,49 @@ class PythonFaceDetection {
                 width: 150,
                 height: 150,
                 confidence: 0.8,
-                quality_score: 0.8
+                quality_score: 0.8,
+                encoding: this.generateFallbackEncoding() // Add fallback encoding
             };
+            
+            // Store the mock face data so it can be used for capture
+            this.lastFaces = [mockFace];
+            this.lastStatus = 'single_face';
+            this.lastMessage = 'Fallback face detected';
+            
+            console.log('📦 Stored fallback face data for capture:', mockFace);
+            
             this.showSingleFaceBox(mockFace);
             this.hideMultipleFacesWarning();
             this.faceQuality = 0.8;
             this.updateQualityIndicator();
             this.enableCapture();
+            this.addErrorLog('Using fallback detection - backend unavailable', 'warning');
         } else {
+            this.lastFaces = [];
             this.hideAllFaceBoxes();
             this.hideMultipleFacesWarning();
         }
     }
     
     showCenteredFaceBox(face) {
-        if (!this.faceBox) return;
+        console.log('🟢 SHOWING FACE BOX:', {
+            faceBoxExists: !!this.faceBox,
+            face: face,
+            videoSize: this.video ? { width: this.video.offsetWidth, height: this.video.offsetHeight } : 'no video',
+            canvasSize: this.canvas ? { width: this.canvas.width, height: this.canvas.height } : 'no canvas'
+        });
+        
+        if (!this.faceBox) {
+            console.error('❌ Face box element not found!');
+            return;
+        }
         
         // Update face position with smooth interpolation
         const smoothFace = this.updateFacePosition(face);
-        if (!smoothFace) return;
+        if (!smoothFace) {
+            console.error('❌ Smooth face position failed!');
+            return;
+        }
         
         const scaleX = this.video.offsetWidth / this.canvas.width;
         const scaleY = this.video.offsetHeight / this.canvas.height;
@@ -621,6 +753,13 @@ class PythonFaceDetection {
         const boxWidth = smoothFace.width * scaleX;
         const boxHeight = smoothFace.height * scaleY;
         
+        console.log('📍 Face box positioning:', {
+            original: { x: face.x, y: face.y, width: face.width, height: face.height },
+            smooth: smoothFace,
+            scale: { x: scaleX, y: scaleY },
+            final: { x: boxX, y: boxY, width: boxWidth, height: boxHeight }
+        });
+        
         // Apply smooth positioning with CSS transitions
         this.faceBox.style.transition = 'left 0.1s ease-out, top 0.1s ease-out, width 0.1s ease-out, height 0.1s ease-out';
         this.faceBox.style.left = boxX + 'px';
@@ -628,6 +767,17 @@ class PythonFaceDetection {
         this.faceBox.style.width = boxWidth + 'px';
         this.faceBox.style.height = boxHeight + 'px';
         this.faceBox.style.display = 'block';
+        this.faceBox.style.border = '2px solid #00ff00'; // Force green border
+        this.faceBox.style.zIndex = '1000'; // Ensure it's on top
+        
+        console.log('✅ Face box styles applied:', {
+            display: this.faceBox.style.display,
+            left: this.faceBox.style.left,
+            top: this.faceBox.style.top,
+            width: this.faceBox.style.width,
+            height: this.faceBox.style.height,
+            border: this.faceBox.style.border
+        });
         
         // Add pulsing animation for centered face
         this.faceBox.classList.add('pulse');
@@ -801,12 +951,20 @@ class PythonFaceDetection {
     
     async captureFace() {
         console.log('📸 CAPTURE FACE INITIATED - Validating conditions...');
+        
+        // Check session validity first (security check)
+        if (!this.checkSessionValidity()) {
+            console.log('❌ CAPTURE BLOCKED: Session expired for security');
+            return;
+        }
+        
         console.log('Current state:', {
             canCapture: this.canCapture,
             lastStatus: this.lastStatus,
             faceCount: this.faceCount,
             faceQuality: this.faceQuality,
-            isScreenLocked: this.isScreenLocked
+            isScreenLocked: this.isScreenLocked,
+            sessionValid: this.checkSessionValidity()
         });
         
         if (!this.video || !this.canvas) {
@@ -972,6 +1130,335 @@ class PythonFaceDetection {
         return encoding;
     }
     
+    async performAutomaticRecognition() {
+        /**
+         * Perform automatic face recognition and attendance marking
+         * This is called when a single face is detected and stable
+         */
+        console.log('🔍 PERFORMING AUTOMATIC RECOGNITION - Starting...');
+        console.log('🔍 Auto attendance enabled:', this.autoAttendanceEnabled);
+        console.log('🔍 Last faces:', this.lastFaces);
+        console.log('🔍 Last faces length:', this.lastFaces ? this.lastFaces.length : 0);
+        
+        if (!this.autoAttendanceEnabled || !this.lastFaces || this.lastFaces.length === 0) {
+            console.log('🚫 AUTOMATIC RECOGNITION SKIPPED: Conditions not met');
+            return;
+        }
+        
+        // Check cooldown to prevent spam
+        const now = Date.now();
+        const timeSinceLastAttendance = now - this.lastAttendanceTime;
+        console.log('🔍 Time since last attendance:', timeSinceLastAttendance, 'ms');
+        console.log('🔍 Cooldown period:', this.attendanceCooldown, 'ms');
+        
+        if (timeSinceLastAttendance < this.attendanceCooldown) {
+            console.log('🚫 AUTOMATIC RECOGNITION SKIPPED: Cooldown active');
+            return;
+        }
+        
+        try {
+            console.log('🔍 AUTOMATIC RECOGNITION: Starting face recognition...');
+            this.updateStatus('Recognizing face...', 'recognizing');
+            
+            const faceEncoding = this.lastFaces[0].encoding;
+            if (!faceEncoding || faceEncoding.every(val => val === 0.0)) {
+                console.log('⚠️ No valid face encoding available for recognition');
+                return;
+            }
+            
+            // Call recognition API
+            const response = await fetch(this.recognitionEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    face_encoding: faceEncoding
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Recognition API error: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            this.lastAttendanceTime = now;
+            
+            if (result.success) {
+                // Student recognized and attendance marked
+                const student = result.student;
+                const attendance = result.attendance;
+                
+                console.log(`✅ AUTOMATIC ATTENDANCE: ${student.name} marked as ${attendance.status} at ${attendance.time}`);
+                
+                this.lastRecognizedStudent = student;
+                this.attendanceMarked = true;
+                
+                // Show success message
+                this.updateStatus(`✅ ${student.name} - ${attendance.status.toUpperCase()} at ${attendance.time}`, 'success');
+                this.addErrorLog(`${student.name} recognized and marked as ${attendance.status}`, 'success');
+                
+                // Show attendance confirmation
+                this.showAttendanceConfirmation(student, attendance);
+                
+            } else if (result.attendance && result.attendance.duplicate_prevention) {
+                // Duplicate attendance prevented
+                const student = result.student;
+                const attendance = result.attendance;
+                
+                console.log(`⚠️ DUPLICATE PREVENTION: ${student.name} already marked as ${attendance.status} at ${attendance.time}`);
+                
+                this.updateStatus(`⚠️ ${student.name} already marked as ${attendance.status.toUpperCase()}`, 'warning');
+                this.addErrorLog(`${student.name} already marked attendance today`, 'warning');
+                
+            } else if (result.attendance && result.attendance.updated_from_absent) {
+                // Attendance updated from absent to present/late
+                const student = result.student;
+                const attendance = result.attendance;
+                
+                console.log(`🔄 ATTENDANCE UPDATED: ${student.name} updated from ABSENT to ${attendance.status} at ${attendance.time}`);
+                
+                this.lastRecognizedStudent = student;
+                this.attendanceMarked = true;
+                
+                // Show success message
+                this.updateStatus(`🔄 ${student.name} - Updated to ${attendance.status.toUpperCase()} at ${attendance.time}`, 'success');
+                this.addErrorLog(`${student.name} attendance updated from ABSENT to ${attendance.status}`, 'success');
+                
+                // Show attendance confirmation
+                this.showAttendanceConfirmation(student, attendance);
+                
+            } else {
+                // Unregistered face
+                console.log('❌ UNREGISTERED FACE: Face not recognized');
+                this.updateStatus('❌ Unregistered face detected', 'error');
+                this.addErrorLog('Face not recognized - unregistered person', 'error');
+            }
+            
+        } catch (error) {
+            console.error('❌ AUTOMATIC RECOGNITION ERROR:', error);
+            this.addErrorLog('Recognition error: ' + error.message, 'error');
+        }
+    }
+    
+    showAttendanceConfirmation(student, attendance) {
+        /**
+         * Show attendance confirmation message
+         */
+        const confirmationDiv = document.createElement('div');
+        confirmationDiv.className = 'attendance-confirmation';
+        confirmationDiv.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 10000;
+            text-align: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            animation: slideIn 0.5s ease-out;
+        `;
+        
+        const statusColor = attendance.status === 'present' ? '#28a745' : '#ffc107';
+        const statusIcon = attendance.status === 'present' ? '✅' : '⏰';
+        
+        confirmationDiv.innerHTML = `
+            <div style="font-size: 24px; margin-bottom: 10px;">${statusIcon}</div>
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${student.name}</div>
+            <div style="font-size: 14px; opacity: 0.9;">${student.student_id}</div>
+            <div style="font-size: 16px; margin-top: 10px; padding: 8px 15px; background: ${statusColor}; border-radius: 8px; display: inline-block;">
+                ${attendance.status.toUpperCase()} at ${attendance.time}
+            </div>
+        `;
+        
+        // Add CSS animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { opacity: 0; transform: translate(-50%, -60%); }
+                to { opacity: 1; transform: translate(-50%, -50%); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(confirmationDiv);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (confirmationDiv.parentNode) {
+                confirmationDiv.parentNode.removeChild(confirmationDiv);
+            }
+            if (style.parentNode) {
+                style.parentNode.removeChild(style);
+            }
+        }, 3000);
+    }
+    
+    async initializeDailyAttendance() {
+        /**
+         * Initialize all students as absent for today
+         * This should be called daily
+         */
+        try {
+            console.log('📅 INITIALIZING DAILY ATTENDANCE...');
+            this.updateStatus('Initializing daily attendance...', 'info');
+            this.addErrorLog('Initializing daily attendance - resetting all students to ABSENT...', 'info');
+            
+            // Disable the button temporarily to prevent multiple clicks
+            const initButton = document.getElementById('initializeDailyAttendance');
+            if (initButton) {
+                initButton.disabled = true;
+                initButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Initializing...';
+            }
+            
+            const response = await fetch(this.attendanceEndpoint, {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Initialization API error: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log(`✅ DAILY ATTENDANCE INITIALIZED: ${result.message}`);
+                this.updateStatus(`✅ Daily attendance initialized: ${result.initialized_count} new students as ABSENT`, 'success');
+                this.addErrorLog(`Daily attendance initialized: ${result.initialized_count} new students as ABSENT, ${result.already_marked_count} already had attendance`, 'success');
+                
+                // Don't reset attendance tracking - preserve existing attendance
+                console.log('📋 Daily initialization complete - existing attendance preserved');
+                this.addErrorLog('Daily initialization complete - existing attendance preserved', 'info');
+                
+            } else {
+                throw new Error(result.error || 'Failed to initialize daily attendance');
+            }
+            
+        } catch (error) {
+            console.error('❌ DAILY ATTENDANCE INITIALIZATION ERROR:', error);
+            this.updateStatus('❌ Failed to initialize daily attendance', 'error');
+            this.addErrorLog('Daily attendance initialization failed: ' + error.message, 'error');
+        } finally {
+            // Re-enable the button
+            const initButton = document.getElementById('initializeDailyAttendance');
+            if (initButton) {
+                initButton.disabled = false;
+                initButton.innerHTML = '<i class="fas fa-calendar-day"></i> Initialize Daily Attendance';
+            }
+        }
+    }
+    
+    async getAttendanceSummary() {
+        /**
+         * Get attendance summary for today
+         */
+        try {
+            console.log('📊 GETTING ATTENDANCE SUMMARY...');
+            
+            const response = await fetch(this.summaryEndpoint, {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Summary API error: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                const summary = result.summary;
+                console.log(`📊 ATTENDANCE SUMMARY: ${summary.scanned}/${summary.total_students} scanned`);
+                console.log(`   Present: ${summary.present}, Late: ${summary.late}, Absent: ${summary.absent}`);
+                
+                return summary;
+            } else {
+                throw new Error(result.error || 'Failed to get attendance summary');
+            }
+            
+        } catch (error) {
+            console.error('❌ ATTENDANCE SUMMARY ERROR:', error);
+            this.addErrorLog('Failed to get attendance summary: ' + error.message, 'error');
+            return null;
+        }
+    }
+    
+    startFaceSession() {
+        // Start security session timer to prevent proxy attacks
+        if (!this.faceSessionStartTime) {
+            this.faceSessionStartTime = Date.now();
+            console.log('🔒 SECURITY: Face session started - 5 minute limit active');
+            
+            // Set warning timer (4 minutes)
+            this.sessionTimer = setTimeout(() => {
+                this.showSessionWarning();
+            }, this.sessionWarningTime);
+            
+            // Set session timeout (5 minutes)
+            setTimeout(() => {
+                this.forceSessionEnd();
+            }, this.maxSessionDuration);
+        }
+    }
+    
+    stopFaceSession() {
+        // Stop security session timer
+        if (this.faceSessionStartTime) {
+            const sessionDuration = Date.now() - this.faceSessionStartTime;
+            console.log(`🔒 SECURITY: Face session ended - Duration: ${Math.round(sessionDuration/1000)}s`);
+            
+            this.faceSessionStartTime = null;
+            
+            if (this.sessionTimer) {
+                clearTimeout(this.sessionTimer);
+                this.sessionTimer = null;
+            }
+        }
+    }
+    
+    showSessionWarning() {
+        // Show warning that session will end soon
+        console.log('⚠️ SECURITY WARNING: Face session will end in 1 minute for security');
+        this.addErrorLog('⚠️ SECURITY: Face session will end in 1 minute to prevent proxy attacks', 'warning');
+        this.updateStatus('⚠️ SECURITY WARNING: Session will end in 1 minute', 'warning');
+    }
+    
+    forceSessionEnd() {
+        // Force end session for security (prevent proxy attacks)
+        console.log('🚨 SECURITY: Forcing session end - 5 minute limit reached');
+        this.addErrorLog('🚨 SECURITY: Session ended - 5 minute limit reached to prevent proxy attacks', 'error');
+        this.updateStatus('🚨 SECURITY: Session ended - Please restart for security', 'error');
+        
+        // Stop detection and reset everything
+        this.stopDetection();
+        this.disableCapture();
+        
+        // Show security message
+        alert('🚨 SECURITY ALERT: Session ended after 5 minutes to prevent proxy attacks. Please restart the camera.');
+    }
+    
+    checkSessionValidity() {
+        // Check if current session is still valid
+        if (this.faceSessionStartTime) {
+            const sessionDuration = Date.now() - this.faceSessionStartTime;
+            if (sessionDuration > this.maxSessionDuration) {
+                this.forceSessionEnd();
+                return false;
+            }
+        }
+        return true;
+    }
+    
     retryCapture() {
         console.log('🔄 RETRY CAPTURE - Clearing previous data and restarting...');
         this.isCaptured = false;
@@ -1047,6 +1534,15 @@ class PythonFaceDetection {
             clearInterval(this.detectionInterval);
             this.detectionInterval = null;
         }
+        
+        // Clear auto-capture timeout
+        if (this.autoCaptureTimeout) {
+            clearTimeout(this.autoCaptureTimeout);
+            this.autoCaptureTimeout = null;
+        }
+        
+        // Stop session timer for security (prevent proxy attacks)
+        this.stopFaceSession();
         
         this.hideAllFaceBoxes();
         this.hideMultipleFacesWarning();

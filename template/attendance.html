@@ -13,22 +13,190 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <!-- Webcam Feed -->
+                    <!-- Face Detection Section -->
                     <div class="col-md-8">
-                        <div class="webcam-container">
-                            <video id="webcam" autoplay muted></video>
-                            <canvas id="canvas" style="display: none;"></canvas>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-user-shield"></i> Face Recognition Attendance
+                                </h3>
+                                <small class="text-muted">Capture your face using advanced face recognition technology</small>
+                            </div>
+                            <div class="card-body">
+                                <div class="face-detection-wrapper">
+                                    <div class="detection-header">
+                                        <h4><i class="fas fa-camera"></i> Face Recognition</h4>
+                                        <div class="detection-status" id="detectionStatus">
+                                            <span class="status-indicator" id="statusIndicator"></span>
+                                            <span class="status-text" id="statusText">Ready to start</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="camera-container">
+                                        <div class="video-wrapper">
+                                            <video id="faceVideo" autoplay muted playsinline></video>
+                                            <canvas id="faceCanvas" style="display: none;"></canvas>
+                                            <div class="detection-overlay" id="detectionOverlay">
+                                                <!-- Small ESP-style face detection box -->
+                                                <div class="face-box" id="faceBox" style="display: none;">
+                                                    <div class="esp-corners">
+                                                        <div class="corner top-left"></div>
+                                                        <div class="corner top-right"></div>
+                                                        <div class="corner bottom-left"></div>
+                                                        <div class="corner bottom-right"></div>
+                                                    </div>
+                                                    <div class="face-info">
+                                                        <span class="face-count" id="faceCount">1 Face</span>
+                                                        <span class="quality-score" id="qualityScore">85%</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Multiple faces warning -->
+                                                <div class="multiple-faces-warning" id="multipleFacesWarning" style="display: none;">
+                                                    <i class="fas fa-exclamation-triangle"></i>
+                                                    <div>
+                                                        <strong>Multiple Faces Detected!</strong>
+                                                        <br>
+                                                        <small>Please ensure only one person is visible in the camera frame</small>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Detection guide -->
+                                                <div class="detection-guide" id="detectionGuide">
+                                                    <div class="guide-content">
+                                                        <i class="fas fa-user-circle"></i>
+                                                        <h5>Position Your Face</h5>
+                                                        <p>Center your face in the detection box</p>
+                                                        <ul>
+                                                            <li>Good lighting required</li>
+                                                            <li>Only ONE person visible</li>
+                                                            <li>Keep face centered in box</li>
+                                                            <li>Look directly at camera</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Centered Face Detection Box -->
+                                                <div class="centered-detection-box" id="centeredDetectionBox">
+                                                    <div class="detection-frame">
+                                                        <div class="frame-corners">
+                                                            <div class="corner top-left"></div>
+                                                            <div class="corner top-right"></div>
+                                                            <div class="corner bottom-left"></div>
+                                                            <div class="corner bottom-right"></div>
+                                                        </div>
+                                                        <div class="frame-center">
+                                                            <i class="fas fa-user"></i>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                         </div>
-                        <div class="mt-3">
-                            <button id="startWebcam" class="btn btn-primary">
+                                        
+                                        <div class="detection-controls">
+                                            <button type="button" id="startDetection" class="btn btn-primary">
                                 <i class="fas fa-play"></i> Start Camera
                             </button>
-                            <button id="stopWebcam" class="btn btn-danger" disabled>
-                                <i class="fas fa-stop"></i> Stop Camera
-                            </button>
-                            <button id="capturePhoto" class="btn btn-success" disabled>
+                                            <button type="button" id="captureFace" class="btn btn-success" disabled>
                                 <i class="fas fa-camera"></i> Mark Attendance
                             </button>
+                                            <button type="button" id="retryCapture" class="btn btn-warning" disabled>
+                                                <i class="fas fa-redo"></i> Retry
+                                            </button>
+                                            <button type="button" id="stopDetection" class="btn btn-danger" disabled>
+                                                <i class="fas fa-stop"></i> Stop
+                                            </button>
+                                            <button type="button" id="testAutoRecognition" class="btn btn-info">
+                                                <i class="fas fa-robot"></i> Test Auto Recognition
+                                            </button>
+                                            <button type="button" id="initializeDailyAttendance" class="btn btn-secondary">
+                                                <i class="fas fa-calendar-day"></i> Initialize Daily Attendance
+                                            </button>
+                                        </div>
+                                        
+                                        <div class="validation-messages" id="validationMessages">
+                                            <div class="log-controls" style="position: absolute; top: -30px; right: 0;">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearLogsBtn" onclick="clearErrorLogs()" style="font-size: 10px; padding: 2px 6px;">
+                                                    <i class="fas fa-trash"></i> Clear Logs
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Face Data Display -->
+                                <div class="row mt-4" id="faceDataDisplay" style="display: none;">
+                                    <div class="col-12">
+                                        <div class="card bg-light">
+                                            <div class="card-header">
+                                                <h6 class="mb-0">
+                                                    <i class="fas fa-check-circle text-success"></i> Face Data Captured Successfully
+                                                </h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <h6>
+                                                            <i class="fas fa-image text-success"></i> Captured Face Image:
+                                                        </h6>
+                                                        <div id="capturedImageContainer" class="captured-image text-center">
+                                                            <div class="captured-face-container" style="display: inline-block; position: relative;">
+                                                                <img id="capturedImage" src="" alt="Captured Face" 
+                                                                     class="img-fluid rounded shadow-sm" 
+                                                                     style="max-width: 200px; max-height: 250px; border: 2px solid #28a745; border-radius: 8px;">
+                                                                <div class="face-type-badge" style="position: absolute; top: -10px; right: -10px; background: #28a745; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">
+                                                                    ✂️
+                                                                </div>
+                                                            </div>
+                                                            <div class="mt-2">
+                                                                <small class="text-success">
+                                                                    <i class="fas fa-check-circle"></i> Cropped & Preprocessed
+                                                                </small>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <h6>
+                                                            <i class="fas fa-fingerprint text-info"></i> Face Information:
+                                                        </h6>
+                                                        <div class="face-info-details">
+                                                            <div class="info-item">
+                                                                <span class="label">Encoding Status:</span>
+                                                                <span class="value text-success">
+                                                                    <i class="fas fa-check-circle"></i> Generated
+                                                                </span>
+                                                            </div>
+                                                            <div class="info-item">
+                                                                <span class="label">Image Quality:</span>
+                                                                <span class="value text-success">
+                                                                    <i class="fas fa-star"></i> High
+                                                                </span>
+                                                            </div>
+                                                            <div class="info-item">
+                                                                <span class="label">Processing:</span>
+                                                                <span class="value text-info">
+                                                                    <i class="fas fa-cogs"></i> Optimized
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div class="processing-summary mt-3">
+                                                            <h6><i class="fas fa-cogs"></i> Processing Applied:</h6>
+                                                            <ul class="processing-steps">
+                                                                <li><i class="fas fa-crop"></i> Face Cropping (30% padding)</li>
+                                                                <li><i class="fas fa-adjust"></i> Grayscale Conversion</li>
+                                                                <li><i class="fas fa-magic"></i> Histogram Equalization</li>
+                                                                <li><i class="fas fa-sharp"></i> Image Sharpening</li>
+                                                                <li><i class="fas fa-eye"></i> Adaptive Enhancement</li>
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -36,32 +204,62 @@
                     <div class="col-md-4">
                         <div class="card">
                             <div class="card-header">
-                                <h5>Mark Attendance</h5>
+                                <h5><i class="fas fa-user-check"></i> Mark Attendance</h5>
                             </div>
                             <div class="card-body">
                                 <form id="attendanceForm" method="post">
                                     {% csrf_token %}
+                                    
+                                    <!-- Face Recognition Data -->
+                                    <input type="hidden" id="faceEncoding" name="face_encoding">
+                                    <input type="hidden" id="faceImage" name="face_image">
+                                    
+                                    <!-- Student Information (Auto-filled by face recognition) -->
                                     <div class="mb-3">
                                         <label for="studentId" class="form-label">Student ID</label>
-                                        <input type="text" class="form-control" id="studentId" name="student_id" required>
+                                        <input type="text" class="form-control" id="studentId" name="student_id" readonly>
+                                        <div class="form-text">Auto-detected from face recognition</div>
                                     </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="studentName" class="form-label">Student Name</label>
+                                        <input type="text" class="form-control" id="studentName" name="student_name" readonly>
+                                        <div class="form-text">Auto-detected from face recognition</div>
+                                    </div>
+                                    
                                     <div class="mb-3">
                                         <label for="attendanceType" class="form-label">Attendance Type</label>
                                         <select class="form-select" id="attendanceType" name="attendance_type" required>
                                             <option value="">Select Type</option>
-                                            <option value="present">Present</option>
+                                            <option value="present" selected>Present</option>
                                             <option value="late">Late</option>
                                             <option value="absent">Absent</option>
                                         </select>
                                     </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="confidence" class="form-label">Recognition Confidence</label>
+                                        <input type="text" class="form-control" id="confidence" name="confidence" readonly>
+                                        <div class="form-text">Face recognition confidence score</div>
+                                    </div>
+                                    
                                     <div class="mb-3">
                                         <label for="notes" class="form-label">Notes (Optional)</label>
-                                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                                        <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Add any additional notes..."></textarea>
                                     </div>
-                                    <button type="submit" class="btn btn-primary w-100">
+                                    
+                                    <button type="submit" class="btn btn-primary w-100" id="submitAttendanceBtn" disabled>
                                         <i class="fas fa-check"></i> Submit Attendance
                                     </button>
                                 </form>
+                                
+                                <!-- Face Recognition Status -->
+                                <div class="mt-3" id="faceRecognitionStatus">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>Status:</strong> <span id="recognitionStatusText">Waiting for face detection...</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
@@ -85,119 +283,457 @@
 {% endblock %}
 
 {% block extra_css %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/advanced-face-detection.css' %}">
 <style>
-.webcam-container {
+/* Attendance-specific styles */
+.face-recognition-section {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.face-detection-container {
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.camera-feed-container {
     position: relative;
     width: 100%;
     max-width: 640px;
-    margin: 0 auto;
+    margin: 0 auto 20px;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 #webcam {
     width: 100%;
     height: auto;
-    border: 2px solid #dee2e6;
-    border-radius: 8px;
+    display: block;
+    border-radius: 12px;
 }
 
-#canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
+.camera-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 20px 0;
+}
+
+.camera-controls .btn {
+    min-width: 140px;
+    padding: 10px 20px;
+    font-weight: 500;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.camera-controls .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.camera-controls .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Face Recognition Status */
+#faceRecognitionStatus .alert {
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+#recognitionStatusText {
+    font-weight: 500;
+}
+
+/* Form enhancements */
+.form-control[readonly] {
+    background-color: #f8f9fa;
+    border-color: #e9ecef;
+    color: #495057;
+}
+
+.form-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* Recent Attendance */
+#recentAttendance {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#recentAttendance .attendance-item {
+    padding: 12px;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: #fff;
+    transition: all 0.2s ease;
+}
+
+#recentAttendance .attendance-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.attendance-item .student-info {
+    font-weight: 600;
+    color: #495057;
+}
+
+.attendance-item .attendance-type {
+    font-size: 0.875rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.attendance-item .attendance-type.present {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.attendance-item .attendance-type.late {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.attendance-item .attendance-type.absent {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.attendance-item .timestamp {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 4px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .camera-controls {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .camera-controls .btn {
+        width: 100%;
+        max-width: 200px;
+    }
+    
+    .face-recognition-section {
+        padding: 15px;
+    }
 }
 </style>
 {% endblock %}
 
 {% block extra_js %}
+{% load static %}
+<script src="{% static 'js/python-face-detection.js' %}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const webcam = document.getElementById('webcam');
-    const canvas = document.getElementById('canvas');
-    const startBtn = document.getElementById('startWebcam');
-    const stopBtn = document.getElementById('stopWebcam');
-    const captureBtn = document.getElementById('capturePhoto');
-    const attendanceForm = document.getElementById('attendanceForm');
+// Clear error logs function
+function clearErrorLogs() {
+    if (window.pythonFaceDetection) {
+        window.pythonFaceDetection.clearErrorLogs();
+    }
+}
+
+// Student recognition function
+async function recognizeStudent(encoding) {
+    console.log('🔍 ATTENDANCE: Recognizing student...');
+    console.log('📊 Encoding details:', {
+        type: typeof encoding,
+        isArray: Array.isArray(encoding),
+        length: encoding ? encoding.length : 'undefined',
+        firstFew: encoding ? encoding.slice(0, 5) : 'undefined'
+    });
     
-    let stream = null;
+    if (window.pythonFaceDetection) {
+        window.pythonFaceDetection.addErrorLog('Recognizing student...', 'info');
+    }
     
-    startBtn.addEventListener('click', async function() {
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: 640, height: 480 } 
-            });
-            webcam.srcObject = stream;
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            captureBtn.disabled = false;
+    try {
+        const requestData = {
+            face_encoding: encoding
+        };
+        
+        console.log('📤 Sending recognition request:', {
+            encodingLength: encoding.length,
+            encodingType: typeof encoding,
+            requestSize: JSON.stringify(requestData).length
+        });
+        
+        const response = await fetch('{% url "recognize_student" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(requestData),
+            timeout: 10000 // 10 second timeout
+        });
+        
+        console.log('📥 Recognition response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('📊 Recognition response data:', data);
+        
+        if (data.success && data.student) {
+            // Update form fields
+            document.getElementById('studentId').value = data.student.student_id;
+            document.getElementById('studentName').value = data.student.name;
+            document.getElementById('confidence').value = `${(data.confidence * 100).toFixed(1)}%`;
+            
+            if (window.pythonFaceDetection) {
+                window.pythonFaceDetection.addErrorLog(`Student recognized: ${data.student.name} (${data.confidence * 100}% confidence)`, 'success');
+            }
+            console.log('✅ ATTENDANCE: Student recognized successfully', data.student);
+            
+            // Enable submit button
+            updateSubmitButton(true);
+            
+        } else {
+            if (window.pythonFaceDetection) {
+                if (data.total_students === 0) {
+                    window.pythonFaceDetection.addErrorLog('No students in database. Please add students first.', 'error');
+                } else {
+                    window.pythonFaceDetection.addErrorLog(`Student not found. Searched ${data.total_students} students.`, 'error');
+                }
+            }
+            console.log('❌ ATTENDANCE: Student not recognized', data.message);
+            updateSubmitButton(false);
+        }
+        
         } catch (error) {
-            console.error('Error accessing webcam:', error);
-            alert('Error accessing webcam. Please check permissions.');
+        console.error('❌ ATTENDANCE: Recognition error:', error);
+        console.error('❌ Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        });
+        
+        if (window.pythonFaceDetection) {
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                window.pythonFaceDetection.addErrorLog('Connection failed. Please check server.', 'error');
+            } else if (error.message.includes('timeout')) {
+                window.pythonFaceDetection.addErrorLog('Recognition timeout. Please try again.', 'error');
+            } else {
+                window.pythonFaceDetection.addErrorLog('Recognition failed: ' + error.message, 'error');
+            }
         }
-    });
-    
-    stopBtn.addEventListener('click', function() {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            webcam.srcObject = null;
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
-            captureBtn.disabled = true;
+        updateSubmitButton(false);
+    }
+}
+
+// Update submit button state
+function updateSubmitButton(isRecognized) {
+    const submitBtn = document.getElementById('submitAttendanceBtn');
+    if (submitBtn) {
+        submitBtn.disabled = !isRecognized;
+        
+        if (isRecognized) {
+            submitBtn.innerHTML = '<i class="fas fa-check"></i> Submit Attendance';
+            submitBtn.className = 'btn btn-success w-100';
+        } else {
+            submitBtn.innerHTML = '<i class="fas fa-clock"></i> Waiting for Recognition...';
+            submitBtn.className = 'btn btn-secondary w-100';
         }
-    });
+    }
+}
+
+// Override the captureFace method to include student recognition
+function setupAttendanceCapture() {
+    if (window.pythonFaceDetection) {
+        const originalCaptureFace = window.pythonFaceDetection.captureFace;
+        
+        window.pythonFaceDetection.captureFace = async function() {
+            console.log('📸 ATTENDANCE: Capturing face for attendance...');
+            
+            try {
+                // Call original capture function
+                const result = await originalCaptureFace.call(this);
+                console.log('📸 ATTENDANCE: Original capture result:', result);
+            
+                // Check if we have face data
+                if (this.lastFaces && this.lastFaces.length > 0) {
+                    const face = this.lastFaces[0];
+                    
+                    console.log('✅ ATTENDANCE: Face data found:', {
+                        hasEncoding: !!face.encoding,
+                        encodingLength: face.encoding ? face.encoding.length : 0,
+                        encodingType: typeof face.encoding
+                    });
+                    
+                    // Try to recognize the student
+                    if (face.encoding && Array.isArray(face.encoding) && face.encoding.length === 128) {
+                        console.log('✅ ATTENDANCE: Valid face encoding found, starting recognition...');
+                        await recognizeStudent(face.encoding);
+                    } else {
+                        console.error('❌ ATTENDANCE: Invalid face encoding:', face.encoding);
+                        this.addErrorLog('Invalid face encoding. Please try again.', 'error');
+                    }
+                } else {
+                    console.error('❌ ATTENDANCE: No face data available after capture');
+                    this.addErrorLog('No face data captured. Please try again.', 'error');
+                }
+                
+                return result;
+            } catch (error) {
+                console.error('❌ ATTENDANCE: Capture error:', error);
+                this.addErrorLog('Capture failed: ' + error.message, 'error');
+                return false;
+            }
+        }.bind(window.pythonFaceDetection);
+        
+        console.log('✅ ATTENDANCE: Capture function overridden for student recognition');
+    }
+}
+
+// Handle form submission
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎯 ATTENDANCE PAGE: Initializing face detection system...');
     
-    captureBtn.addEventListener('click', function() {
-        const context = canvas.getContext('2d');
-        canvas.width = webcam.videoWidth;
-        canvas.height = webcam.videoHeight;
-        context.drawImage(webcam, 0, 0);
+    // Initialize the PythonFaceDetection system
+    if (document.getElementById('faceVideo') && document.getElementById('startDetection')) {
+        console.log('Initializing Face Recognition System...');
+        window.pythonFaceDetection = new PythonFaceDetection();
         
-        // Convert to base64 and add to form
-        const imageData = canvas.toDataURL('image/jpeg');
-        const hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.name = 'captured_image';
-        hiddenInput.value = imageData;
-        attendanceForm.appendChild(hiddenInput);
-    });
-    
-    attendanceForm.addEventListener('submit', function(e) {
-        e.preventDefault();
+        // Setup attendance-specific capture behavior
+        setupAttendanceCapture();
         
-        const formData = new FormData(this);
-        
-        fetch('{% url "mark_attendance" %}', {
+        // Handle form submission
+        const attendanceForm = document.getElementById('attendanceForm');
+        if (attendanceForm) {
+            attendanceForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const faceImageField = document.getElementById('faceImage');
+                const faceEncodingField = document.getElementById('faceEncoding');
+                const studentIdField = document.getElementById('studentId');
+                
+                if (!faceImageField || !faceImageField.value || !faceEncodingField || !faceEncodingField.value) {
+                    alert('Please capture and recognize a face first.');
+                    return;
+                }
+                
+                if (!studentIdField || !studentIdField.value) {
+                    alert('Student not recognized. Please try again.');
+                    return;
+                }
+                
+                console.log('📝 ATTENDANCE: Submitting attendance...');
+                
+                const submitBtn = document.getElementById('submitAttendanceBtn');
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+                submitBtn.disabled = true;
+                
+                try {
+                    const formData = new FormData(this);
+                    
+                    const response = await fetch('{% url "mark_attendance" %}', {
             method: 'POST',
             body: formData,
             headers: {
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             }
-        })
-        .then(response => response.json())
-        .then(data => {
+                    });
+                    
+                    const data = await response.json();
+                    
             if (data.success) {
-                alert('Attendance marked successfully!');
+                        console.log('✅ ATTENDANCE: Attendance marked successfully', data.attendance);
+                        
+                        if (window.pythonFaceDetection) {
+                            window.pythonFaceDetection.addErrorLog('Attendance marked successfully!', 'success');
+                        }
+                        
+                        // Update recent attendance
+                        updateRecentAttendance(data.attendance);
+                        
+                        // Reset form
                 this.reset();
-                updateRecentAttendance(data.attendance);
+                        updateSubmitButton(false);
+                        
+                        // Hide captured face preview
+                        const faceDataDisplay = document.getElementById('faceDataDisplay');
+                        if (faceDataDisplay) {
+                            faceDataDisplay.style.display = 'none';
+                        }
+                        
+                        // Retry capture to reset the system
+                        if (window.pythonFaceDetection) {
+                            window.pythonFaceDetection.retryCapture();
+                        }
+                        
+                        alert(`Attendance marked successfully for ${data.attendance.student_name}!`);
+                        
             } else {
+                        console.error('❌ ATTENDANCE: Submission failed', data.message);
+                        if (window.pythonFaceDetection) {
+                            window.pythonFaceDetection.addErrorLog(`Error: ${data.message}`, 'error');
+                        }
                 alert('Error: ' + data.message);
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
+                    
+                } catch (error) {
+                    console.error('❌ ATTENDANCE: Submission error:', error);
+                    if (window.pythonFaceDetection) {
+                        window.pythonFaceDetection.addErrorLog('Submission failed. Please try again.', 'error');
+                    }
             alert('An error occurred while marking attendance.');
-        });
-    });
-    
-    function updateRecentAttendance(attendance) {
-        const recentDiv = document.getElementById('recentAttendance');
-        const attendanceItem = document.createElement('div');
-        attendanceItem.className = 'mb-2 p-2 border rounded';
-        attendanceItem.innerHTML = `
-            <strong>${attendance.student_id}</strong> - ${attendance.type}
-            <br><small class="text-muted">${attendance.timestamp}</small>
-        `;
-        recentDiv.insertBefore(attendanceItem, recentDiv.firstChild);
+                }
+                
+                // Reset button state
+                updateSubmitButton(false);
+            });
+        }
+        
+        console.log('✅ ATTENDANCE PAGE: Face detection system initialized successfully');
+    } else {
+        console.error('❌ ATTENDANCE PAGE: Required elements not found');
     }
 });
+
+// Update recent attendance display
+    function updateRecentAttendance(attendance) {
+        const recentDiv = document.getElementById('recentAttendance');
+    
+    const noRecordsMsg = recentDiv.querySelector('.text-muted');
+    if (noRecordsMsg) {
+        noRecordsMsg.remove();
+    }
+    
+        const attendanceItem = document.createElement('div');
+    attendanceItem.className = 'attendance-item';
+        attendanceItem.innerHTML = `
+        <div class="student-info">${attendance.student_name}</div>
+        <div class="attendance-type ${attendance.status}">${attendance.status.toUpperCase()}</div>
+        <div class="timestamp">${new Date(attendance.timestamp).toLocaleString()}</div>
+        `;
+    
+        recentDiv.insertBefore(attendanceItem, recentDiv.firstChild);
+    
+    const items = recentDiv.querySelectorAll('.attendance-item');
+    if (items.length > 10) {
+        items[items.length - 1].remove();
+    }
+}
 </script>
 {% endblock %}

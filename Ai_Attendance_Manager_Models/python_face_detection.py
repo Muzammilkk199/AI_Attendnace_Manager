@@ -29,8 +29,16 @@ class PythonFaceDetector:
     def __init__(self):
         self.initialized = False
         self.face_history = []  # For detection stability
-        self.history_size = 5   # Number of frames to consider for stability
+        self.history_size = 3   # Reduced for faster processing
         self.initialize_face_recognition()
+        
+        # Stricter recognition parameters
+        self.min_face_size = 50  # Increased minimum face size
+        self.max_face_size = 400  # Reduced maximum for better quality
+        self.quality_threshold = 0.7  # Increased quality requirement
+        self.similarity_threshold = 0.85  # Much stricter similarity (was 0.8)
+        self.confidence_threshold = 0.9  # High confidence required
+        self.min_face_area = 2500  # Minimum face area in pixels
     
     def initialize_face_recognition(self):
         """Initialize face_recognition library"""
@@ -42,11 +50,11 @@ class PythonFaceDetector:
             face_locations = face_recognition.face_locations(test_image)
             
             self.initialized = True
-            logger.info("Python Face Detector initialized successfully with face_recognition library")
+            logger.info("✅ Python Face Detector initialized successfully with face_recognition library")
             
         except Exception as e:
-            logger.error(f"Failed to initialize face_recognition library: {str(e)}")
-            raise e
+            logger.error(f"❌ Failed to initialize face_recognition library: {str(e)}")
+            self.initialized = False
     
     def base64_to_image(self, base64_string: str):
         """Convert base64 string to RGB image for face_recognition"""
@@ -67,7 +75,7 @@ class PythonFaceDetector:
             return rgb_image
             
         except Exception as e:
-            logger.error(f"Error converting base64 to image: {str(e)}")
+            logger.error(f"❌ Error converting base64 to image: {str(e)}")
             return None
     
     def image_to_base64(self, image) -> str:
@@ -87,7 +95,7 @@ class PythonFaceDetector:
                 return ""
             
         except Exception as e:
-            logger.error(f"Error converting image to base64: {str(e)}")
+            logger.error(f"❌ Error converting image to base64: {str(e)}")
             return ""
     
     def detect_faces(self, image) -> List[Dict]:
@@ -96,6 +104,7 @@ class PythonFaceDetector:
         Returns list of face dictionaries with coordinates, size, and quality
         """
         if not self.initialized or image is None:
+            logger.warning("Face detector not initialized or no image provided")
             return []
         
         try:
@@ -143,9 +152,91 @@ class PythonFaceDetector:
             return smoothed_faces
             
         except Exception as e:
-            logger.error(f"Error detecting faces: {str(e)}")
+            logger.error(f"❌ Error detecting faces: {str(e)}")
             return []
     
+    def detect_faces_strict(self, image) -> List[Dict]:
+        """
+        STRICT face detection with enhanced validation for accuracy and speed
+        """
+        if not self.initialized or image is None:
+            logger.warning("Face detector not initialized or no image provided")
+            return []
+        
+        try:
+            # face_recognition expects RGB images
+            if len(image.shape) == 3 and image.shape[2] == 3:
+                rgb_image = image
+            else:
+                # Convert to RGB if needed
+                rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            
+            # STRICT face detection with optimized parameters for speed
+            face_locations = face_recognition.face_locations(
+                rgb_image, 
+                model="hog",
+                number_of_times_to_upsample=1  # Faster processing
+            )
+            
+            face_data = []
+            
+            for i, (top, right, bottom, left) in enumerate(face_locations):
+                # Convert face_recognition format (top, right, bottom, left) to (x, y, w, h)
+                x = left
+                y = top
+                w = right - left
+                h = bottom - top
+                face_area = w * h
+                
+                # STRICT size validation
+                if (w < self.min_face_size or w > self.max_face_size or
+                    h < self.min_face_size or h > self.max_face_size or
+                    face_area < self.min_face_area):
+                    logger.info(f"❌ Face {i} rejected: size {w}x{h}, area {face_area}")
+                    continue
+                
+                # Extract face region for quality assessment
+                face_roi = rgb_image[top:bottom, left:right]
+                
+                # Calculate STRICT face quality
+                quality = self.calculate_face_quality_strict(x, y, w, h, 2, image.shape)
+                
+                # Only accept high-quality faces
+                if quality < self.quality_threshold:
+                    logger.info(f"❌ Face {i} rejected: quality {quality:.2f} < {self.quality_threshold}")
+                    continue
+                
+                # Additional validation for face proportions
+                aspect_ratio = w / h if h > 0 else 0
+                if not (0.7 <= aspect_ratio <= 1.3):  # Reasonable face proportions
+                    logger.info(f"❌ Face {i} rejected: bad aspect ratio {aspect_ratio:.2f}")
+                    continue
+                
+                face_info = {
+                    'id': i,
+                    'x': int(x),
+                    'y': int(y),
+                    'width': int(w),
+                    'height': int(h),
+                    'confidence': quality,
+                    'eyes_detected': 2,  # face_recognition assumes good face quality
+                    'quality_score': quality,
+                    'area': face_area,
+                    'aspect_ratio': aspect_ratio
+                }
+                
+                face_data.append(face_info)
+                logger.info(f"✅ Face {i} accepted: quality {quality:.2f}, size {w}x{h}")
+            
+            # Apply temporal smoothing for better stability (reduced for speed)
+            if len(face_data) > 0:
+                face_data = self.smooth_detections(face_data)
+            
+            return face_data
+            
+        except Exception as e:
+            logger.error(f"❌ Error in strict face detection: {str(e)}")
+            return []
     
     def calculate_face_quality(self, x: int, y: int, w: int, h: int, eyes_count: int, image_shape: Tuple) -> float:
         """
@@ -214,8 +305,78 @@ class PythonFaceDetector:
             return min(1.0, max(0.0, quality))
             
         except Exception as e:
-            logger.error(f"Error calculating face quality: {str(e)}")
+            logger.error(f"❌ Error calculating face quality: {str(e)}")
             return 0.5
+    
+    def calculate_face_quality_strict(self, x: int, y: int, w: int, h: int, eyes_count: int, image_shape: Tuple) -> float:
+        """
+        Calculate STRICT face quality score with enhanced validation
+        Returns score between 0.0 and 1.0
+        """
+        try:
+            img_height, img_width = image_shape[:2]
+            
+            # Size quality (stricter requirements)
+            size_quality = 1.0
+            if w < self.min_face_size or h < self.min_face_size:
+                size_quality = 0.3  # Much lower score for small faces
+            elif w > self.max_face_size or h > self.max_face_size:
+                size_quality = 0.4  # Lower score for oversized faces
+            else:
+                # Optimal size range gets full points
+                size_quality = 1.0
+            
+            # Position quality (stricter centering requirements)
+            center_x = img_width // 2
+            center_y = img_height // 2
+            face_center_x = x + w // 2
+            face_center_y = y + h // 2
+            
+            # Distance from center (stricter tolerance)
+            distance_from_center = math.sqrt(
+                (face_center_x - center_x) ** 2 + (face_center_y - center_y) ** 2
+            )
+            max_distance = min(img_width, img_height) // 3  # Stricter centering requirement
+            
+            if distance_from_center > max_distance:
+                position_quality = 0.2  # Much lower score for off-center faces
+            else:
+                position_quality = 1.0 - (distance_from_center / max_distance) * 0.3
+            
+            # Eyes quality (stricter requirements)
+            eyes_quality = 1.0 if eyes_count >= 2 else 0.1
+            
+            # Face area quality (stricter minimum area)
+            face_area = w * h
+            area_quality = 1.0 if face_area >= self.min_face_area else 0.2
+            
+            # Aspect ratio quality (stricter face proportions)
+            aspect_ratio = w / h if h > 0 else 0
+            if 0.8 <= aspect_ratio <= 1.2:  # Stricter aspect ratio
+                ratio_quality = 1.0
+            elif 0.7 <= aspect_ratio <= 1.3:
+                ratio_quality = 0.7
+            else:
+                ratio_quality = 0.3
+            
+            # Calculate weighted average with stricter weights
+            quality_score = (
+                size_quality * 0.25 +      # Size importance
+                position_quality * 0.25 +   # Position importance
+                eyes_quality * 0.20 +       # Eyes importance
+                area_quality * 0.15 +       # Area importance
+                ratio_quality * 0.15        # Aspect ratio importance
+            )
+            
+            # Apply minimum threshold
+            if quality_score < self.quality_threshold:
+                quality_score = 0.0
+            
+            return min(1.0, max(0.0, quality_score))
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating strict face quality: {str(e)}")
+            return 0.0
     
     def smooth_detections(self, current_faces: List[Dict]) -> List[Dict]:
         """
@@ -274,7 +435,7 @@ class PythonFaceDetector:
             return stable_faces
             
         except Exception as e:
-            logger.error(f"Error smoothing detections: {str(e)}")
+            logger.error(f"❌ Error smoothing detections: {str(e)}")
             return current_faces
     
     def is_face_centered(self, face: Dict, image_shape: Tuple) -> bool:
@@ -305,7 +466,7 @@ class PythonFaceDetector:
             return x_deviation <= max_deviation_x and y_deviation <= max_deviation_y
             
         except Exception as e:
-            logger.error(f"Error checking face centering: {str(e)}")
+            logger.error(f"❌ Error checking face centering: {str(e)}")
             return False
     
     def reset_detection_history(self):
@@ -323,43 +484,9 @@ class PythonFaceDetector:
             'library': 'face_recognition'
         }
     
-    def generate_face_encoding_from_cropped_face(self, image, face_data: Dict) -> List[float]:
+    def generate_face_encoding(self, image, face_data: Dict) -> List[float]:
         """
-        Generate face encoding from cropped and preprocessed face region
-        This ensures only the processed face is used for encoding generation
-        """
-        try:
-            logger.info(f"Generating encoding from cropped face region")
-            
-            # First, try to generate encoding from original detection (as backup)
-            # This ensures we always have a valid encoding
-            original_encoding = self.generate_encoding_from_original_detection(image, face_data)
-            
-            # Then try to extract and preprocess face region for enhanced encoding
-            cropped_face = self.crop_and_preprocess_face(image, face_data)
-            if cropped_face is not None:
-                # Generate face encoding from the cropped and preprocessed face
-                face_encodings = face_recognition.face_encodings(cropped_face)
-                
-                if face_encodings:
-                    encoding = face_encodings[0].tolist()
-                    logger.info(f"Successfully generated encoding from cropped face (length: {len(encoding)})")
-                    return encoding
-                else:
-                    logger.warning("No face encoding generated from cropped face, using original detection encoding")
-                    return original_encoding
-            else:
-                logger.warning("Failed to crop face, using original detection encoding")
-                return original_encoding
-                
-        except Exception as e:
-            logger.error(f"Error generating face encoding from cropped face: {str(e)}")
-            # Fallback to original detection method
-            return self.generate_encoding_from_original_detection(image, face_data)
-    
-    def generate_encoding_from_original_detection(self, image, face_data: Dict) -> List[float]:
-        """
-        Generate encoding from original face detection coordinates (fallback method)
+        Generate face encoding from face detection coordinates
         """
         try:
             x, y, w, h = face_data['x'], face_data['y'], face_data['width'], face_data['height']
@@ -384,117 +511,27 @@ class PythonFaceDetector:
             
             if face_encodings:
                 encoding = face_encodings[0].tolist()
-                logger.info(f"Generated encoding from original detection (length: {len(encoding)})")
+                logger.info(f"✅ Generated face encoding (length: {len(encoding)})")
                 return encoding
             else:
-                logger.warning("No face encoding generated from original detection")
+                logger.warning("❌ No face encoding generated")
                 return [0.0] * 128
                 
         except Exception as e:
-            logger.error(f"Error generating encoding from original detection: {str(e)}")
+            logger.error(f"❌ Error generating face encoding: {str(e)}")
             return [0.0] * 128
-    
-    def crop_and_preprocess_face(self, image, face_data: Dict):
-        """
-        Crop face region with padding and apply preprocessing for optimal encoding
-        """
-        try:
-            x, y, w, h = face_data['x'], face_data['y'], face_data['width'], face_data['height']
-            img_height, img_width = image.shape[:2]
-            
-            # Validate face coordinates
-            if x < 0 or y < 0 or w <= 0 or h <= 0:
-                logger.error(f"Invalid face coordinates: x={x}, y={y}, w={w}, h={h}")
-                return None
-            
-            # Add 30% padding around face (same as frontend)
-            padding = 0.3
-            padded_x = max(0, int(x - w * padding))
-            padded_y = max(0, int(y - h * padding))
-            padded_w = min(img_width - padded_x, int(w * (1 + 2 * padding)))
-            padded_h = min(img_height - padded_y, int(h * (1 + 2 * padding)))
-            
-            # Ensure minimum face size for encoding
-            if padded_w < 50 or padded_h < 50:
-                logger.warning(f"Face too small for reliable encoding: {padded_w}x{padded_h}")
-                return None
-            
-            logger.info(f"Cropping face: original({x},{y},{w},{h}) -> padded({padded_x},{padded_y},{padded_w},{padded_h})")
-            logger.info(f"Image shape: {image.shape}, Crop bounds: [{padded_y}:{padded_y+padded_h}, {padded_x}:{padded_x+padded_w}]")
-            
-            # Crop the face region
-            cropped_face = image[padded_y:padded_y+padded_h, padded_x:padded_x+padded_w]
-            
-            # Validate cropped face
-            if cropped_face.size == 0:
-                logger.error("Cropped face is empty")
-                return None
-            
-            logger.info(f"Cropped face shape: {cropped_face.shape}")
-            
-            # Apply minimal preprocessing to avoid destroying face structure
-            processed_face = self.preprocess_face_for_encoding(cropped_face)
-            
-            return processed_face
-            
-        except Exception as e:
-            logger.error(f"Error cropping and preprocessing face: {str(e)}")
-            return None
-    
-    def preprocess_face_for_encoding(self, face_image):
-        """
-        Apply minimal preprocessing to cropped face for optimal encoding generation
-        Keep preprocessing light to maintain face structure for face_recognition
-        """
-        try:
-            # Ensure image is RGB for face_recognition
-            if len(face_image.shape) == 3:
-                # Convert BGR to RGB for face_recognition
-                face_rgb = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
-            else:
-                # Convert grayscale to RGB
-                face_rgb = cv2.cvtColor(face_image, cv2.COLOR_GRAY2RGB)
-            
-            # Apply very light histogram equalization only if image is too dark/bright
-            gray_version = cv2.cvtColor(face_rgb, cv2.COLOR_RGB2GRAY)
-            mean_brightness = np.mean(gray_version)
-            
-            if mean_brightness < 80 or mean_brightness > 180:
-                logger.info(f"Adjusting brightness from {mean_brightness}")
-                # Convert to YUV, equalize Y channel, convert back
-                face_yuv = cv2.cvtColor(face_rgb, cv2.COLOR_RGB2YUV)
-                face_yuv[:,:,0] = cv2.equalizeHist(face_yuv[:,:,0])
-                face_rgb = cv2.cvtColor(face_yuv, cv2.COLOR_YUV2RGB)
-            
-            logger.info(f"Preprocessed face shape: {face_rgb.shape}, brightness: {mean_brightness}")
-            return face_rgb
-            
-        except Exception as e:
-            logger.error(f"Error preprocessing face: {str(e)}")
-            # Return original image converted to RGB if preprocessing fails
-            try:
-                if len(face_image.shape) == 3:
-                    return cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
-                else:
-                    return cv2.cvtColor(face_image, cv2.COLOR_GRAY2RGB)
-            except:
-                return face_image
-    
-    def generate_face_encoding(self, image, face_data: Dict) -> List[float]:
-        """
-        Generate face encoding - now uses cropped and preprocessed face
-        """
-        return self.generate_face_encoding_from_cropped_face(image, face_data)
-    
     
     def process_image(self, base64_image: str) -> Dict:
         """
-        Main processing function - takes base64 image and returns face detection results
+        STRICTER and FASTER image processing with enhanced validation
         """
         try:
+            logger.info("🔍 Starting STRICT image processing...")
+            
             # Convert base64 to image
             image = self.base64_to_image(base64_image)
             if image is None:
+                logger.error("❌ Failed to decode base64 image")
                 return {
                     'success': False,
                     'error': 'Failed to decode image',
@@ -502,14 +539,17 @@ class PythonFaceDetector:
                     'face_count': 0
                 }
             
-            # Detect faces
-            faces = self.detect_faces(image)
+            logger.info(f"📊 Image decoded successfully: {image.shape}")
             
-            # Generate encodings for each face using cropped and preprocessed face regions
+            # STRICT face detection with size filtering
+            faces = self.detect_faces_strict(image)
+            logger.info(f"🔍 STRICT detection found {len(faces)} valid faces")
+            
+            # Generate encodings for each face
             for face in faces:
-                face['encoding'] = self.generate_face_encoding_from_cropped_face(image, face)
+                face['encoding'] = self.generate_face_encoding(image, face)
             
-            # Determine status with strict validation
+            # Determine status with MUCH stricter validation
             face_count = len(faces)
             if face_count == 0:
                 status = 'no_faces'
@@ -533,6 +573,8 @@ class PythonFaceDetector:
                 status = 'multiple_faces_blocked'
                 message = f'BLOCKED: Multiple faces detected ({face_count}) - System locked until only one person is visible'
             
+            logger.info(f"✅ Processing complete: status={status}, faces={face_count}")
+            
             return {
                 'success': True,
                 'status': status,
@@ -543,7 +585,9 @@ class PythonFaceDetector:
             }
             
         except Exception as e:
-            logger.error(f"Error processing image: {str(e)}")
+            logger.error(f"❌ Error processing image: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {
                 'success': False,
                 'error': str(e),

@@ -5,7 +5,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import render
 import Ai_Attendance_Manager.controller as controller
-from Ai_Attendance_Manager_Models.face_detection_views import face_detection_api, face_detection_status   
+from Ai_Attendance_Manager_Models.face_detection_views import (
+    face_detection_api, face_detection_status, recognize_student,
+    initialize_daily_attendance, get_attendance_summary, manual_attendance_mark
+)   
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -33,6 +36,12 @@ urlpatterns = [
     # Python Face Detection API
     path('api/face-detection/', face_detection_api, name='face_detection_api'),
     path('api/face-detection/status/', face_detection_status, name='face_detection_status'),
+    path('api/recognize-student/', recognize_student, name='recognize_student'),
+    
+    # Automatic Attendance Management API
+    path('api/attendance/initialize/', initialize_daily_attendance, name='initialize_daily_attendance'),
+    path('api/attendance/summary/', get_attendance_summary, name='get_attendance_summary'),
+    path('api/attendance/manual-mark/', manual_attendance_mark, name='manual_attendance_mark'),
     
     # legacy support
     path('Add_Student/', controller.add_student, name='Add_Student'),

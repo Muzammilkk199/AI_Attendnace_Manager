@@ -107,28 +107,54 @@ class MongoDBManager:
         result = self.collection.delete_one({'_id': doc_id})
         return result.deleted_count > 0
     
-    def search_by_embedding(self, embedding: List[float], threshold: float = 0.8, limit: int = 10):
-        """Search for similar faces using embedding similarity"""
-        # This is a simplified similarity search
-        # For production, you'd want to use MongoDB's vector search or a specialized vector database
-        
-        # Get all documents with embeddings
-        docs = list(self.collection.find({'embedding': {'$exists': True}}))
-        
-        similar_docs = []
-        for doc in docs:
-            if 'embedding' in doc:
-                # Calculate cosine similarity (simplified)
-                similarity = self._cosine_similarity(embedding, doc['embedding'])
-                if similarity >= threshold:
-                    doc['similarity'] = similarity
-                    doc['id'] = str(doc['_id'])
-                    del doc['_id']
-                    similar_docs.append(doc)
-        
-        # Sort by similarity and return top results
-        similar_docs.sort(key=lambda x: x['similarity'], reverse=True)
-        return similar_docs[:limit]
+    def search_by_embedding(self, embedding: List[float], threshold: float = 0.9298, limit: int = 3):
+        """
+        ULTRA-STRICT search for similar faces using embedding similarity
+        Prevents unregistered faces from matching registered students
+        """
+        if not self.connected:
+            print(f"MongoDB not connected - skipping embedding search for {self.collection_name}")
+            return []
+            
+        try:
+            # Get all documents with embeddings
+            docs = list(self.collection.find({'embedding': {'$exists': True}}))
+            
+            similar_docs = []
+            for doc in docs:
+                if 'embedding' in doc and len(doc['embedding']) == len(embedding):
+                    # Calculate cosine similarity
+                    similarity = self._cosine_similarity(embedding, doc['embedding'])
+                    
+                    # ULTRA-STRICT threshold to prevent unregistered face matches
+                    if similarity >= threshold:
+                        # Additional validation: check if similarity is significantly high
+                        if similarity >= 0.95:  # Very high confidence
+                            doc['similarity'] = similarity
+                            doc['confidence'] = 'VERY_HIGH'
+                            doc['id'] = str(doc['_id'])
+                            del doc['_id']
+                            similar_docs.append(doc)
+                            print(f"✅ ULTRA-STRICT MATCH: {doc.get('name', 'Unknown')} - Similarity: {similarity:.3f} (VERY_HIGH)")
+                        elif similarity >= 0.90:  # High confidence
+                            doc['similarity'] = similarity
+                            doc['confidence'] = 'HIGH'
+                            doc['id'] = str(doc['_id'])
+                            del doc['_id']
+                            similar_docs.append(doc)
+                            print(f"✅ STRICT MATCH: {doc.get('name', 'Unknown')} - Similarity: {similarity:.3f} (HIGH)")
+                        else:
+                            print(f"❌ REJECTED: {doc.get('name', 'Unknown')} - Similarity: {similarity:.3f} < 0.90 (LOW_CONFIDENCE)")
+                    else:
+                        print(f"❌ REJECTED: {doc.get('name', 'Unknown')} - Similarity: {similarity:.3f} < {threshold} (UNREGISTERED_FACE)")
+            
+            # Sort by similarity and return top results
+            similar_docs.sort(key=lambda x: x['similarity'], reverse=True)
+            return similar_docs[:limit]
+            
+        except Exception as e:
+            print(f"Error in ultra-strict embedding search: {e}")
+            return []
     
     def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Calculate cosine similarity between two vectors"""
@@ -167,13 +193,41 @@ class StudentMongoDBManager(MongoDBManager):
         """Find student by student_id"""
         return self.get_by_field('student_id', student_id)
     
-    def find_similar_faces(self, embedding: List[float], threshold: float = 0.8):
-        """Find students with similar face embeddings"""
+    def find_similar_faces(self, embedding: List[float], threshold: float = 0.9298):
+        """Find students with similar face embeddings - ULTRA-STRICT MODE"""
         return self.search_by_embedding(embedding, threshold)
     
     def get_active_students(self):
         """Get all active students"""
         return self.get_all({'is_active': True})
+    
+    def is_face_registered(self, embedding: List[float], threshold: float = 0.9298) -> bool:
+        """
+        Check if a face is registered in the database
+        Returns True only if face matches a registered student with high confidence
+        """
+        try:
+            similar_faces = self.find_similar_faces(embedding, threshold)
+            
+            if similar_faces:
+                best_match = similar_faces[0]
+                similarity_score = best_match.get('similarity', 0)
+                confidence_level = best_match.get('confidence', 'UNKNOWN')
+                
+                # Only consider it registered if similarity is very high
+                if similarity_score >= 0.9298 and confidence_level in ['VERY_HIGH', 'HIGH']:
+                    print(f"✅ FACE REGISTERED: {best_match.get('name', 'Unknown')} - Similarity: {similarity_score:.3f}")
+                    return True
+                else:
+                    print(f"❌ FACE NOT REGISTERED: Similarity {similarity_score:.3f} < 0.9298 or confidence {confidence_level} insufficient")
+                    return False
+            else:
+                print("❌ FACE NOT REGISTERED: No similar faces found")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error checking face registration: {e}")
+            return False
 
 
 class AttendanceMongoDBManager(MongoDBManager):

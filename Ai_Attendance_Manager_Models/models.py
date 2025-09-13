@@ -48,25 +48,25 @@ class Student(models.Model):
                 'created_at': self.created_at.isoformat() if hasattr(self, 'created_at') else None
             }
             
-            print(f"Saving student to MongoDB: {data}")
+            print(f"💾 Saving student to MongoDB: {data}")
             
             existing = mongo.find_by_student_id(self.student_id)
             if existing:
                 result = mongo.update(existing['id'], **data)
-                print(f"Updated existing MongoDB student record: {result}")
+                print(f"✅ Updated existing MongoDB student record: {result}")
                 return result
             else:
                 result = mongo.create(**data)
-                print(f"Created new MongoDB student record: {result}")
+                print(f"✅ Created new MongoDB student record: {result}")
                 return result
         except Exception as e:
-            print(f"Error saving student to MongoDB: {e}")
+            print(f"❌ Error saving student to MongoDB: {e}")
             import traceback
             traceback.print_exc()
             return None
     
     def save_embedding(self, embedding):
-        # save face data to mongo
+        """Save face embedding to MongoDB"""
         try:
             mongo = StudentMongoDBManager()
             data = {
@@ -83,54 +83,107 @@ class Student(models.Model):
                 'django_id': self.id
             }
             
-            print(f"Attempting to save to MongoDB: {data}")
+            print(f"💾 Attempting to save face embedding to MongoDB: {self.student_id}")
             
             existing = mongo.find_by_student_id(self.student_id)
             if existing:
                 result = mongo.update(existing['id'], **data)
-                print(f"Updated existing MongoDB record: {result}")
+                print(f"✅ Updated existing MongoDB record with embedding: {result}")
                 return result
             else:
                 result = mongo.create(**data)
-                print(f"Created new MongoDB record: {result}")
+                print(f"✅ Created new MongoDB record with embedding: {result}")
                 return result
         except Exception as e:
-            print(f"Error saving embedding to MongoDB: {e}")
+            print(f"❌ Error saving embedding to MongoDB: {e}")
             import traceback
             traceback.print_exc()
             return None
     
     def get_embedding(self):
+        """Get face embedding from MongoDB"""
         try:
             mongo = StudentMongoDBManager()
             data = mongo.find_by_student_id(self.student_id)
             return data.get('embedding') if data else None
-        except:
+        except Exception as e:
+            print(f"❌ Error getting embedding from MongoDB: {e}")
             return None
     
     def find_similar_faces(self, embedding, threshold=0.8):
+        """Find similar faces in MongoDB"""
         try:
             mongo = StudentMongoDBManager()
             return mongo.find_similar_faces(embedding, threshold)
-        except:
+        except Exception as e:
+            print(f"❌ Error finding similar faces: {e}")
             return []
     
     @classmethod
-    def find_by_face(cls, embedding, threshold=0.8):
+    def find_by_face(cls, embedding, threshold=0.9298):
+        """
+        ULTRA-STRICT face recognition to prevent unregistered faces from matching
+        """
+        print(f"\n{'='*60}")
+        print(f"🔍 ULTRA-STRICT FIND_BY_FACE METHOD CALLED")
+        print(f"📊 Embedding type: {type(embedding)}, length: {len(embedding) if embedding else 0}")
+        print(f"📊 ULTRA-STRICT Threshold: {threshold}")
+        print(f"🛡️ PROXY PREVENTION: Active")
+        print(f"{'='*60}")
+        
         try:
+            print("🔍 Connecting to MongoDB...")
             mongo = StudentMongoDBManager()
+            
+            if not mongo.connected:
+                print("❌ MongoDB not connected - cannot perform face recognition")
+                return None
+            
+            print("✅ MongoDB connected, searching for similar faces with ULTRA-STRICT criteria...")
             faces = mongo.find_similar_faces(embedding, threshold)
-        except:
+            print(f"📈 Found {len(faces) if faces else 0} similar faces with ultra-strict criteria")
+            
+        except Exception as e:
+            print(f"❌ Error connecting to MongoDB: {e}")
+            import traceback
+            traceback.print_exc()
             return None
         
         if faces:
-            match = faces[0]
-            if match.get('django_id'):
-                try:
-                    return cls.objects.get(id=match['django_id'])
-                except:
-                    pass
+            print(f"🗺️ Processing {len(faces)} face matches...")
+            for i, match in enumerate(faces):
+                print(f"  📋 Match {i+1}: {match.get('name', 'Unknown')} (Django ID: {match.get('django_id', 'None')})")
+            
+            best_match = faces[0]
+            similarity_score = best_match.get('similarity', 0)
+            confidence_level = best_match.get('confidence', 'UNKNOWN')
+            django_id = best_match.get('django_id')
+            
+            # ULTRA-STRICT validation to prevent unregistered face matches
+            print(f"🔍 VALIDATION: Similarity: {similarity_score:.3f}, Confidence: {confidence_level}")
+            
+            # Only accept matches with very high confidence (92.98% threshold)
+            if similarity_score >= 0.9298 and confidence_level in ['VERY_HIGH', 'HIGH']:
+                if django_id:
+                    print(f"🎯 Best match Django ID: {django_id}")
+                    try:
+                        student = cls.objects.get(id=django_id)
+                        print(f"✅ ULTRA-STRICT MATCH: {student.name} ({student.student_id}) - Similarity: {similarity_score:.3f}")
+                        return student
+                    except cls.DoesNotExist:
+                        print(f"❌ Student with Django ID {django_id} not found in Django database")
+                    except Exception as e:
+                        print(f"❌ Error retrieving student from Django DB: {e}")
+                else:
+                    print("❌ Best match has no Django ID")
+            else:
+                print(f"❌ REJECTED: Similarity {similarity_score:.3f} < 0.9298 or confidence {confidence_level} insufficient")
+                print("🛡️ PROXY PREVENTION: Unregistered face detected and rejected")
+        else:
+            print("🚫 No similar faces found with ultra-strict criteria")
+            print("🛡️ PROXY PREVENTION: No registered face matches found")
         
+        print("🚫 Returning None - unregistered face or insufficient match quality")
         return None
 
 
@@ -143,7 +196,7 @@ class Attendance(models.Model):
     
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     date = models.DateField(default=timezone.now)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Absent')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='present')
     timestamp = models.DateTimeField(auto_now_add=True)
     confidence = models.FloatField(default=0.0)
     notes = models.TextField(blank=True, null=True)
@@ -157,6 +210,7 @@ class Attendance(models.Model):
         self.save_to_mongodb()
     
     def save_to_mongodb(self):
+        """Save attendance data to MongoDB"""
         try:
             mongo = AttendanceMongoDBManager()
             data = {
@@ -175,10 +229,12 @@ class Attendance(models.Model):
                 return mongo.update(existing['id'], **data)
             else:
                 return mongo.create(**data)
-        except:
+        except Exception as e:
+            print(f"❌ Error saving attendance to MongoDB: {e}")
             return None
     
     def save_image_data(self, image_data):
+        """Save image data to MongoDB"""
         try:
             mongo = AttendanceMongoDBManager()
             data = mongo.get_by_field('django_id', self.id)
@@ -186,23 +242,28 @@ class Attendance(models.Model):
                 return mongo.update(data['id'], image_data=image_data)
             else:
                 return self.save_to_mongodb()
-        except:
+        except Exception as e:
+            print(f"❌ Error saving image data: {e}")
             return None
     
     def get_image_data(self):
+        """Get image data from MongoDB"""
         try:
             mongo = AttendanceMongoDBManager()
             data = mongo.get_by_field('django_id', self.id)
             return data.get('image_data') if data else None
-        except:
+        except Exception as e:
+            print(f"❌ Error getting image data: {e}")
             return None
     
     @classmethod
     def get_attendance_by_date(cls, date):
+        """Get attendance records by date"""
         try:
             mongo = AttendanceMongoDBManager()
             mongo_records = mongo.get_attendance_by_date(date)
-        except:
+        except Exception as e:
+            print(f"❌ Error getting MongoDB attendance: {e}")
             mongo_records = []
         
         records = cls.objects.filter(date=date)
@@ -210,13 +271,175 @@ class Attendance(models.Model):
     
     @classmethod
     def get_attendance_stats(cls, start_date=None, end_date=None):
+        """Get attendance statistics"""
         try:
             mongo = AttendanceMongoDBManager()
             return mongo.get_attendance_stats(start_date, end_date)
-        except:
+        except Exception as e:
+            print(f"❌ Error getting attendance stats: {e}")
             return {}
     
-    # TODO: add more stats methods later
     def get_attendance_rate(self):
-        # incomplete - need to implement
+        """Calculate attendance rate for student"""
+        # TODO: implement attendance rate calculation
         pass
+    
+    @classmethod
+    def get_attendance_status_by_time(cls, current_time=None):
+        """
+        Determine attendance status based on current time
+        - Before 8:00 AM: Present
+        - After 8:00 AM: Late
+        """
+        from datetime import datetime, time
+        
+        if current_time is None:
+            current_time = datetime.now().time()
+        
+        # Define cutoff time (8:00 AM)
+        cutoff_time = time(8, 0)  # 8:00 AM
+        
+        if current_time <= cutoff_time:
+            return 'present'
+        else:
+            return 'late'
+    
+    @classmethod
+    def mark_automatic_attendance(cls, student, confidence=0.95, notes=None):
+        """
+        Automatically mark attendance for a student based on current time
+        Updates existing attendance if student was previously marked as absent
+        """
+        from datetime import date, datetime
+        
+        today = date.today()
+        current_time = datetime.now().time()
+        
+        # Check if student already has attendance for today
+        existing_attendance = cls.objects.filter(
+            student=student,
+            date=today
+        ).first()
+        
+        # Determine status based on time
+        status = cls.get_attendance_status_by_time(current_time)
+        
+        if existing_attendance:
+            # If student was previously marked as absent, update to present/late
+            if existing_attendance.status == 'absent':
+                existing_attendance.status = status
+                existing_attendance.confidence = confidence
+                existing_attendance.notes = notes or f'Automatic attendance - {status.title()}'
+                existing_attendance.timestamp = datetime.now()
+                existing_attendance.save()
+                
+                return {
+                    'success': True,
+                    'message': f'Attendance updated for {student.name} from ABSENT to {status.upper()}',
+                    'status': status,
+                    'time': current_time.strftime('%H:%M:%S'),
+                    'attendance_id': existing_attendance.id,
+                    'confidence': confidence,
+                    'updated_from_absent': True
+                }
+            else:
+                # Student already has present/late attendance - prevent duplicate
+                return {
+                    'success': False,
+                    'message': f'Attendance already marked for {student.name} today',
+                    'existing_status': existing_attendance.status,
+                    'existing_time': existing_attendance.timestamp.strftime('%H:%M:%S'),
+                    'duplicate_prevention': True
+                }
+        
+        # Create new attendance record
+        attendance = cls.objects.create(
+            student=student,
+            date=today,
+            status=status,
+            confidence=confidence,
+            notes=notes or f'Automatic attendance - {status.title()}'
+        )
+        
+        return {
+            'success': True,
+            'message': f'Attendance marked successfully for {student.name}',
+            'status': status,
+            'time': current_time.strftime('%H:%M:%S'),
+            'attendance_id': attendance.id,
+            'confidence': confidence
+        }
+    
+    @classmethod
+    def initialize_daily_attendance(cls, date=None):
+        """
+        Initialize all students as absent for a given date
+        This should be run daily to set default absent status
+        Only creates new records for students who don't have attendance yet
+        """
+        from datetime import date as date_class
+        
+        if date is None:
+            date = date_class.today()
+        
+        # Get all active students
+        students = Student.objects.filter(is_active=True)
+        
+        initialized_count = 0
+        already_marked_count = 0
+        
+        for student in students:
+            # Check if attendance already exists for this date
+            existing = cls.objects.filter(
+                student=student,
+                date=date
+            ).first()
+            
+            if existing:
+                # Student already has attendance - don't change it
+                already_marked_count += 1
+            else:
+                # Create new absent attendance record
+                cls.objects.create(
+                    student=student,
+                    date=date,
+                    status='absent',
+                    confidence=0.0,
+                    notes='Default absent status - not scanned today'
+                )
+                initialized_count += 1
+        
+        return {
+            'success': True,
+            'message': f'Initialized {initialized_count} new students as ABSENT, {already_marked_count} already had attendance for {date}',
+            'date': date.isoformat(),
+            'initialized_count': initialized_count,
+            'already_marked_count': already_marked_count,
+            'total_students': students.count()
+        }
+    
+    @classmethod
+    def get_daily_attendance_summary(cls, date=None):
+        """
+        Get attendance summary for a specific date
+        """
+        from datetime import date as date_class
+        
+        if date is None:
+            date = date_class.today()
+        
+        attendance_records = cls.objects.filter(date=date)
+        
+        summary = {
+            'date': date.isoformat(),
+            'total_students': Student.objects.filter(is_active=True).count(),
+            'present': attendance_records.filter(status='present').count(),
+            'late': attendance_records.filter(status='late').count(),
+            'absent': attendance_records.filter(status='absent').count(),
+            'scanned': attendance_records.filter(status__in=['present', 'late']).count(),
+            'not_scanned': 0
+        }
+        
+        summary['not_scanned'] = summary['total_students'] - summary['scanned']
+        
+        return summary
