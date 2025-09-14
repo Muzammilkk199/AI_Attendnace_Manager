@@ -46,6 +46,10 @@ class PythonFaceDetection {
         this.sessionWarningTime = 4 * 60 * 1000; // 4 minutes warning
         this.sessionTimer = null; // Session timeout timer
         
+        // Manual override system
+        this.manualOverrideActive = false; // Flag to disable auto detection
+        this.autoDetectionDisabled = false; // Flag to track if auto detection is disabled
+        
         // STRICT Detection parameters for accuracy
         this.minFaceSize = 50; // Increased minimum for better quality
         this.maxFaceSize = 400; // Reduced maximum for better quality
@@ -348,10 +352,7 @@ class PythonFaceDetection {
             }
             
             // Start detection loop
-            console.log(`🔄 STARTING DETECTION LOOP - ${this.detectionFPS} FPS`);
-            this.detectionInterval = setInterval(() => {
-                this.detectFacesWithPython();
-            }, 1000 / this.detectionFPS); // 5 FPS for server communication
+            this.startDetectionLoop();
             
         } catch (error) {
             console.error('❌ DETECTION START ERROR:', error);
@@ -493,6 +494,12 @@ class PythonFaceDetection {
     
     async detectFacesWithPython() {
         if (!this.isDetecting || !this.video || !this.ctx) return;
+        
+        // Skip if manual override is active
+        if (this.manualOverrideActive || this.autoDetectionDisabled) {
+            console.log('⏭️ Skipping frame - manual override active');
+            return;
+        }
         
         // Skip if already processing a request
         if (this.pendingRequest) {
@@ -935,6 +942,9 @@ class PythonFaceDetection {
             this.captureButton.title = 'Ready to capture';
             this.updateStatus('Face detected! Ready to capture.', 'success');
             this.showValidationMessage('Face detected successfully. Click "Capture" to register.', 'success');
+            
+            // Also enable checkout button when face is detected
+            this.enableCheckoutButton();
         } else {
             this.disableCapture();
             this.showValidationMessage('Face quality too low. Please adjust your position.', 'warning');
@@ -947,6 +957,9 @@ class PythonFaceDetection {
         this.captureButton.disabled = false; // keep clickable for error feedback
         this.captureButton.title = 'Not ready yet - see guidance in the panel';
         this.stableFrames = 0;
+        
+        // Also disable checkout button when no face is detected
+        this.disableCheckoutButton();
     }
     
     async captureFace() {
@@ -1228,6 +1241,17 @@ class PythonFaceDetection {
                 
                 // Show attendance confirmation
                 this.showAttendanceConfirmation(student, attendance);
+                
+            } else if (result.day_finished || (result.message && result.message.includes('day is finished')) || (result.message && result.message.includes('cannot scan your face after'))) {
+                // Day finished response
+                console.log('🚫 DAY FINISHED DETECTED in automatic recognition:', result.message);
+                this.updateStatus('🚫 Day finished - scanning not allowed', 'error');
+                this.addErrorLog('🚫 ' + (result.message || 'The day is finished! You cannot scan your face after 2:00 PM.'), 'error');
+                
+                // Show prominent day finished alert if function exists
+                if (typeof showDayFinishedAlert === 'function') {
+                    showDayFinishedAlert(result.message || 'The day is finished! You cannot scan your face after 2:00 PM.');
+                }
                 
             } else {
                 // Unregistered face
@@ -1595,6 +1619,99 @@ class PythonFaceDetection {
     clearErrorLogs() {
         this.errorLogs = [];
         this.updateErrorLogDisplay();
+    }
+    
+    // Manual override methods
+    disableAutoDetection() {
+        this.manualOverrideActive = true;
+        this.autoDetectionDisabled = true;
+        
+        // Stop the detection loop
+        if (this.detectionInterval) {
+            clearInterval(this.detectionInterval);
+            this.detectionInterval = null;
+        }
+        
+        console.log('🛑 AUTO DETECTION DISABLED - Manual override active');
+        this.addErrorLog('Auto detection disabled - Manual mode active', 'warning');
+    }
+    
+    enableAutoDetection() {
+        this.manualOverrideActive = false;
+        this.autoDetectionDisabled = false;
+        
+        // Restart detection if camera is active
+        if (this.isDetecting) {
+            this.startDetectionLoop();
+        }
+        
+        console.log('✅ AUTO DETECTION ENABLED - Auto mode active');
+        this.addErrorLog('Auto detection enabled - Auto mode active', 'success');
+    }
+    
+    startDetectionLoop() {
+        if (this.isDetecting && !this.manualOverrideActive && !this.autoDetectionDisabled) {
+            console.log(`🔄 STARTING DETECTION LOOP - ${this.detectionFPS} FPS`);
+            this.detectionInterval = setInterval(() => {
+                this.detectFacesWithPython();
+            }, 1000 / this.detectionFPS);
+        }
+    }
+    
+    isAutoDetectionDisabled() {
+        return this.manualOverrideActive || this.autoDetectionDisabled;
+    }
+    
+    // Enable checkout button when face is detected
+    enableCheckoutButton() {
+        const checkoutBtn = document.getElementById('checkoutFace');
+        if (checkoutBtn) {
+            checkoutBtn.disabled = false;
+            checkoutBtn.title = 'Ready for checkout';
+            console.log('🚪 CHECKOUT: Button enabled - face detected');
+        }
+    }
+    
+    // Disable checkout button when no face is detected
+    disableCheckoutButton() {
+        const checkoutBtn = document.getElementById('checkoutFace');
+        if (checkoutBtn) {
+            checkoutBtn.disabled = true;
+            checkoutBtn.title = 'No face detected';
+            console.log('🚪 CHECKOUT: Button disabled - no face detected');
+        }
+    }
+    
+    // Checkout face method
+    async checkoutFace() {
+        console.log('🚪 CHECKOUT: Starting checkout face capture...');
+        
+        if (!this.lastFaces || this.lastFaces.length === 0) {
+            console.log('❌ CHECKOUT: No face data available');
+            this.addErrorLog('No face detected. Please position your face in the camera view.', 'error');
+            return;
+        }
+        
+        const face = this.lastFaces[0];
+        if (!face.encoding || !Array.isArray(face.encoding) || face.encoding.length !== 128) {
+            console.log('❌ CHECKOUT: Invalid face encoding');
+            this.addErrorLog('Face encoding is invalid. Please try again.', 'error');
+            return;
+        }
+        
+        try {
+            // Call the checkout recognition function
+            if (typeof recognizeStudentForCheckout === 'function') {
+                await recognizeStudentForCheckout(face.encoding);
+                console.log('✅ CHECKOUT: Checkout recognition completed');
+            } else {
+                console.log('❌ CHECKOUT: recognizeStudentForCheckout function not found');
+                this.addErrorLog('Checkout function not available. Please refresh the page.', 'error');
+            }
+        } catch (error) {
+            console.error('❌ CHECKOUT ERROR:', error);
+            this.addErrorLog('Checkout failed: ' + error.message, 'error');
+        }
     }
     
     updateErrorLogDisplay() {

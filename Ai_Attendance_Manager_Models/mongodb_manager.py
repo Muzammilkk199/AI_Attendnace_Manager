@@ -188,6 +188,18 @@ class StudentMongoDBManager(MongoDBManager):
     
     def __init__(self):
         super().__init__('students')
+
+    def get_all_students(self):
+        """Return all students as a list of dicts"""
+        docs = super().get_all()
+        for doc in docs:
+            if '_id' in doc:
+                doc['id'] = str(doc['_id'])
+                doc.pop('_id', None)
+            else:
+                # Fallback: ensure `id` exists even if `_id` is missing
+                doc['id'] = doc.get('student_id', None)
+        return docs
     
     def find_by_student_id(self, student_id: str):
         """Find student by student_id"""
@@ -198,8 +210,24 @@ class StudentMongoDBManager(MongoDBManager):
         return self.search_by_embedding(embedding, threshold)
     
     def get_active_students(self):
-        """Get all active students"""
-        return self.get_all({'is_active': True})
+        """Return only students with is_active=True (default filter)"""
+        docs = super().get_all({'is_active': True})
+        for doc in docs:
+            if '_id' in doc:
+                doc['id'] = str(doc['_id'])
+                doc.pop('_id', None)
+            else:
+                doc['id'] = doc.get('student_id', None)
+        return docs
+    def delete_by_student_id(self, student_id):
+        try:
+            return self.collection.delete_one({"student_id": student_id})
+        except Exception as e:
+            print(f"Error deleting student in MongoDB: {e}")
+            return None
+
+    def update_student(self, student_id, data):
+        return self.collection.update_one({"student_id": student_id}, {"$set": data})
     
     def is_face_registered(self, embedding: List[float], threshold: float = 0.9298) -> bool:
         """
@@ -235,6 +263,70 @@ class AttendanceMongoDBManager(MongoDBManager):
     
     def __init__(self):
         super().__init__('attendance')
+
+    def get_all_attendance(self, date: Optional[str] = None):
+        filter_dict = {}
+        if date:
+            if isinstance(date, str):
+                try:
+                    date = datetime.strptime(date, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+            filter_dict['date'] = str(date)
+
+        docs = super().get_all(filter_dict)
+        for doc in docs:
+            if '_id' in doc:
+                doc['id'] = str(doc['_id'])
+                doc.pop('_id', None)
+            else:
+                doc['id'] = doc.get('attendance_id', None)
+        return docs
+
+    def get_all_attendance_with_filter(self, filter_dict: Dict = None):
+        """Get all attendance records with custom filter"""
+        if filter_dict is None:
+            filter_dict = {}
+        
+        # Handle date range filtering
+        if 'date' in filter_dict and isinstance(filter_dict['date'], dict):
+            date_filter = filter_dict.pop('date')
+            if '$gte' in date_filter and '$lte' in date_filter:
+                filter_dict['date'] = {
+                    '$gte': date_filter['$gte'],
+                    '$lte': date_filter['$lte']
+                }
+            elif '$gte' in date_filter:
+                filter_dict['date'] = {'$gte': date_filter['$gte']}
+            elif '$lte' in date_filter:
+                filter_dict['date'] = {'$lte': date_filter['$lte']}
+        
+        docs = list(self.collection.find(filter_dict))
+        for doc in docs:
+            # Make sure we're preserving the _id field
+            doc['id'] = str(doc['_id'])  # Convert ObjectId to string
+            del doc['_id']  # Remove the original _id field
+        return docs
+    
+    def find_by_attendance_id(self, attendance_id: str):
+        """Find attendance record by custom attendance_id"""
+        return self.get_by_field('attendance_id', attendance_id)
+
+    def delete_by_attendance_id(self, attendance_id: str):
+        try:
+            # Convert string ID to ObjectId if needed
+            if isinstance(attendance_id, str) and len(attendance_id) == 24:
+                # This looks like a MongoDB ObjectId
+                return self.collection.delete_one({"_id": ObjectId(attendance_id)})
+            else:
+                # Try as a regular attendance_id field
+                return self.collection.delete_one({"attendance_id": attendance_id})
+        except Exception as e:
+            print(f"Error deleting attendance in MongoDB: {e}")
+            return None
+
+    def update_attendance(self, attendance_id: str, data: dict):
+        return self.collection.update_one({"attendance_id": attendance_id}, {"$set": data})
     
     def get_attendance_by_date(self, date):
         """Get attendance records for a specific date"""

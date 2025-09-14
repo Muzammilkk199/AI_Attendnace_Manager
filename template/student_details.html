@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Details - Attendance Manager{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<form id="csrf-holder" style="display:none;">
+    {% csrf_token %}
+</form>
+
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <h2 class="fw-bold page-title">Student Details</h2>
+        <a href="{% url 'add_student' %}" class="btn btn-primary">
+            <i class="fas fa-user-plus me-2"></i> Add Student
+        </a>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm rounded-3 border-0">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted mb-1">Total Students</h6>
+                    <h3 class="fw-bold" id="totalStudents">{{ total_students }}</h3>
+                </div>
+                <div class="icon-box bg-primary text-white">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow-sm rounded-3 border-0">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted mb-1">Active Students</h6>
+                    <h3 class="fw-bold text-success" id="activeStudents">{{ active_students }}</h3>
+                </div>
+                <div class="icon-box bg-success text-white">
+                    <i class="fas fa-user-check"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow-sm rounded-3 border-0">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted mb-1">Inactive Students</h6>
+                    <h3 class="fw-bold text-danger" id="inactiveStudents">{{ inactive_students }}</h3>
+                </div>
+                <div class="icon-box bg-danger text-white">
+                    <i class="fas fa-user-times"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student Table -->
+<div class="card shadow-sm rounded-3 border-0">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold">Students List</h5>
+        <div>
+            <input type="text" id="searchBox" class="form-control form-control-sm" placeholder="Search students...">
+        </div>
+    </div>
+    <div class="card-body table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Student ID</th>
+                    <th>Name</th>
+                    <th>Class</th>
+                    <th>Section</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                <tr>
+                    <td>{{ student.student_id }}</td>
+                    <td>{{ student.name }}</td>
+                    <td>{{ student.class_name }}</td>
+                    <td>{{ student.section }}</td>
+                    <td>{{ student.email|default:"-" }}</td>
+                    <td>{{ student.phone|default:"-" }}</td>
+                    <td>
+                        {% if student.is_active %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td class="pe-3">
+                            <button class="btn btn-sm btn-outline-warning rounded-3" 
+                                    onclick="editAttendance('{{ student.student_id }}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button 
+                                class="btn btn-sm btn-outline-danger rounded-3 delete-btn" 
+                                data-url="{% url 'delete_student' student.student_id %}"
+                                data-status="{{ student.is_active|yesno:'active,inactive' }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Student Modal -->
+<div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="studentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="studentModalLabel">Student Profile</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p><strong>ID:</strong> <span id="modal-student-id"></span></p>
+        <p><strong>Name:</strong> <span id="modal-student-name"></span></p>
+        <p><strong>Email:</strong> <span id="modal-student-email"></span></p>
+        <p><strong>Phone:</strong> <span id="modal-student-phone"></span></p>
+        <p><strong>Class:</strong> <span id="modal-student-class"></span></p>
+        <p><strong>Section:</strong> <span id="modal-student-section"></span></p>
+        <p><strong>Status:</strong> <span id="modal-student-status"></span></p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const deleteButtons = document.querySelectorAll(".delete-btn");
+
+    deleteButtons.forEach(button => {
+        button.addEventListener("click", function () {
+            const url = this.dataset.url;   // ✅ Django-generated delete URL
+            const status = this.dataset.status; // "active" or "inactive"
+            const row = this.closest("tr");
+
+            Swal.fire({
+                title: "Are you sure?",
+                text: "This student will be permanently deleted!",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#3085d6",
+                confirmButtonText: "Yes, delete it!"
+            }).then((result) => {
+                if (!result.isConfirmed) return;
+
+                fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": getCookie("csrftoken"),
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    credentials: "same-origin"
+                })
+                .then(async response => {
+                    const data = await response.json().catch(() => null);
+
+                    if (!response.ok) {
+                        Swal.fire("Error!", data?.message || "Failed to delete student", "error");
+                        return;
+                    }
+
+                    if (data?.success) {
+                        if (row) row.remove();
+                        decrementCounter("#totalStudents");
+                        if (status === "active") decrementCounter("#activeStudents");
+                        else decrementCounter("#inactiveStudents");
+
+                        Swal.fire("Deleted!", data.message || "Student deleted", "success");
+                    } else {
+                        Swal.fire("Error!", data?.message || "Unknown error", "error");
+                    }
+                })
+                .catch(err => {
+                    console.error("Delete error:", err);
+                    Swal.fire("Error!", "Network error occurred.", "error");
+                });
+            });
+        });
+    });
+
+    function decrementCounter(selector) {
+        const el = document.querySelector(selector);
+        if (!el) return;
+        let val = parseInt(el.textContent || "0", 10);
+        if (!isNaN(val) && val > 0) {
+            el.textContent = (val - 1).toString();
+        }
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== "") {
+            const cookies = document.cookie.split(";");
+            for (let cookie of cookies) {
+                cookie = cookie.trim();
+                if (cookie.startsWith(name + "=")) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
+{% endblock %}
+
+

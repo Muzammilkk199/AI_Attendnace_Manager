@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods, require_POST
 from django.utils import timezone
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -13,6 +14,14 @@ from django.contrib.auth.models import User
 from datetime import datetime, timedelta
 import json
 import re
+from Ai_Attendance_Manager_Models.models import Attendance, Student
+from Ai_Attendance_Manager_Models.mongodb_manager import AttendanceMongoDBManager, StudentMongoDBManager
+import io
+from openpyxl import Workbook
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
 
 try:
     from Ai_Attendance_Manager_Models.models import Student, Attendance
@@ -23,6 +32,7 @@ except Exception as e:
     Attendance = None
 
 
+@login_required
 def home(request):
     return render(request, 'home.html')
 
@@ -43,21 +53,50 @@ def login_view(request):
                 'message': 'Please provide both username and password'
             })
         
+        # Check if user exists in database first
+        try:
+            user_exists = User.objects.filter(username=username).exists()
+            if not user_exists:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'User does not exist in the system'
+                })
+        except Exception as e:
+            print(f"Error checking user existence: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': 'Database error occurred. Please try again.'
+            })
+        
         # Try to authenticate user
         user = authenticate(request, username=username, password=password)
         
         if user is not None:
+            # Check if user is active
+            if not user.is_active:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Your account has been deactivated. Please contact administrator.'
+                })
+            
+            # Log the user in
             login(request, user)
             
+            # Set session expiry
             if not remember_me:
-                request.session.set_expiry(0)
+                request.session.set_expiry(0)  # Session expires when browser closes
             else:
-                request.session.set_expiry(86400 * 7)
+                request.session.set_expiry(86400 * 7)  # 7 days
+            
+            # Update last login time
+            user.last_login = timezone.now()
+            user.save(update_fields=['last_login'])
             
             return JsonResponse({
                 'success': True,
                 'message': f'Welcome back, {user.first_name or user.username}!',
-                'redirect_url': '/'
+                'redirect_url': '/',
+                'user_role': 'Administrator' if user.is_staff else 'User'
             })
         else:
             return JsonResponse({
@@ -71,6 +110,73 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('login')
+
+
+@login_required
+def user_management(request):
+    """User management page for creating and managing users"""
+    if not request.user.is_staff:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied. Admin privileges required.'
+        }, status=403)
+    
+    if request.method == 'POST':
+        try:
+            username = request.POST.get('username')
+            email = request.POST.get('email')
+            password = request.POST.get('password')
+            first_name = request.POST.get('first_name', '')
+            last_name = request.POST.get('last_name', '')
+            is_staff = request.POST.get('is_staff') == 'on'
+            
+            if not username or not email or not password:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Username, email, and password are required'
+                })
+            
+            # Check if user already exists
+            if User.objects.filter(username=username).exists():
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Username already exists'
+                })
+            
+            if User.objects.filter(email=email).exists():
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Email already exists'
+                })
+            
+            # Create user
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                is_staff=is_staff,
+                is_active=True
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'User "{username}" created successfully'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Error creating user: {str(e)}'
+            })
+    
+    # Get all users for display
+    users = User.objects.all().order_by('-date_joined')
+    context = {
+        'users': users
+    }
+    return render(request, 'user_management.html', context)
 
 
 
@@ -191,6 +297,7 @@ def reset_password_view(request, uidb64, token):
         })
 
 
+@login_required
 def add_student(request):
     print(f"\n{'='*50}")
     print(f"ADD_STUDENT FUNCTION CALLED")
@@ -339,6 +446,7 @@ def add_student(request):
     return render(request, 'add_student.html')
 
 
+@login_required
 def attendance(request):
     return render(request, 'attendance.html')
 
@@ -407,90 +515,245 @@ def mark_attendance(request):
     return JsonResponse({'success': False, 'message': 'Invalid request'})
 
 
+@login_required
 def report(request):
+    """Render attendance report using MongoDB Atlas instead of SQLite"""
+    attendance_manager = AttendanceMongoDBManager()
+    student_manager = StudentMongoDBManager()
+
+    attendance_records = []
     students = []
-    if Student:
-        students = Student.objects.all()
-    return render(request, 'report.html', {'students': students})
 
+    total_present = 0
+    total_late = 0
+    total_absent = 0
+    attendance_rate = 0
 
+    if attendance_manager.connected:
+        try:
+            docs = attendance_manager.get_all_attendance()
+            docs.sort(key=lambda x: (x.get('date', ''), x.get('timestamp', '')), reverse=True)
+
+            for doc in docs[:50]:
+                # Count summary
+                status = doc.get("status", "").lower()
+                if status == "present":
+                    total_present += 1
+                elif status == "late":
+                    total_late += 1
+                elif status == "absent":
+                    total_absent += 1
+
+                attendance_records.append({
+                    "id": doc.get("_id"),
+                    "date": doc.get("date", ""),
+                    "student_id": doc.get("student_id", ""),
+                    "student_name": doc.get("student_name", ""),
+                    "status": doc.get("status", ""),
+                    "timestamp": doc.get("timestamp", ""),
+                    "notes": doc.get("notes", "-"),
+                })
+
+            # Calculate attendance rate (Present / (Present + Late + Absent))
+            total = total_present + total_late + total_absent
+            if total > 0:
+                attendance_rate = round((total_present / total) * 100, 2)
+
+        except Exception as e:
+            print(f"Error fetching attendance from MongoDB: {e}")
+
+    if student_manager.connected:
+        try:
+            students = student_manager.get_active_students()
+            students.sort(key=lambda s: s.get("name", ""))
+        except Exception as e:
+            print(f"Error fetching students from MongoDB: {e}")
+
+    context = {
+        "attendance_records": attendance_records,
+        "students": students,
+        "total_present": total_present,
+        "total_late": total_late,
+        "total_absent": total_absent,
+        "attendance_rate": attendance_rate,
+    }
+    return render(request, "report.html", context)
 
 @csrf_exempt
 def attendance_data(request):
     if request.method == 'POST':
-        if Attendance:
-            records = Attendance.objects.all()[:20]
-            summary = {
-                'present': records.filter(status='present').count(),
-                'late': records.filter(status='late').count(),
-                'absent': records.filter(status='absent').count(),
-                'rate': 75.0  # hardcoded for now - fix later
-            }
-            
-            attendance_records = []
-            for record in records:
-                attendance_records.append({
-                    'id': record.id,
-                    'date': record.date.isoformat(),
-                    'student_id': record.student.student_id,
-                    'student_name': f"{record.student.first_name} {record.student.last_name}",
-                    'status': record.status,
-                    'timestamp': record.timestamp.isoformat()
-                })
-        else:
-            summary = {'present': 15, 'late': 3, 'absent': 2, 'rate': 75.0}
-            attendance_records = [
-                {
-                    'id': 1,
-                    'date': timezone.now().date().isoformat(),
-                    'student_id': 'STU001',
-                    'student_name': 'John Doe',
-                    'status': 'present',
-                    'timestamp': timezone.now().isoformat()
-                }
-            ]
+        attendance_manager = AttendanceMongoDBManager()
         
+        summary = {"present": 0, "late": 0, "absent": 0, "rate": 0}
+        attendance_records = []
+
+        if attendance_manager.connected:
+            try:
+                # Get filter parameters from request
+                date_from = request.POST.get('date_from')
+                date_to = request.POST.get('date_to')
+                student_id = request.POST.get('student_id')
+
+                # Build filter based on request parameters
+                filter_dict = {}
+                
+                # Date range filter
+                if date_from and date_to:
+                    filter_dict['date'] = {
+                        '$gte': date_from,
+                        '$lte': date_to
+                    }
+                elif date_from:
+                    filter_dict['date'] = {'$gte': date_from}
+                elif date_to:
+                    filter_dict['date'] = {'$lte': date_to}
+                
+                # Student filter
+                if student_id:
+                    filter_dict['student_id'] = student_id
+
+                # Use the filter method
+                docs = list(attendance_manager.collection.find(filter_dict))
+                docs.sort(key=lambda x: (x.get('date', ''), x.get('timestamp', '')), reverse=True)
+
+                for doc in docs[:100]:
+                    status = doc.get("status", "").lower()
+                    if status == "present":
+                        summary["present"] += 1
+                    elif status == "late":
+                        summary["late"] += 1
+                    elif status == "absent":
+                        summary["absent"] += 1
+
+                    # CORRECT WAY: Extract the _id field from MongoDB document
+                    # MongoDB documents have _id field, not id
+                    record_id = str(doc.get("_id", ""))  # This gets the MongoDB ObjectId
+                    
+                    attendance_records.append({
+                        "id": record_id,  # This should now have the correct MongoDB _id
+                        "date": doc.get("date", ""),
+                        "student_id": doc.get("student_id", ""),
+                        "student_name": doc.get("student_name", ""),
+                        "status": doc.get("status", ""),
+                        "timestamp": doc.get("timestamp", ""),
+                        "notes": doc.get("notes", "-"),
+                        # Also include django_id as fallback
+                        "django_id": doc.get("django_id", "")
+                    })
+
+                total = summary["present"] + summary["late"] + summary["absent"]
+                if total > 0:
+                    summary["rate"] = round((summary["present"] / total) * 100, 2)
+
+            except Exception as e:
+                print(f"Error in attendance_data: {e}")
+
         return JsonResponse({
-            'success': True,
-            'summary': summary,
-            'records': attendance_records
+            "success": True,
+            "summary": summary,
+            "records": attendance_records
         })
-    
-    return JsonResponse({'success': False})
 
-
+    return JsonResponse({"success": False})
 
 @csrf_exempt
 def dashboard_data(request):
-    if Student and Attendance:
-        total_students = Student.objects.count()
-        present_today = Attendance.objects.filter(status='present').count()
-        late_today = Attendance.objects.filter(status='late').count()
-        absent_today = Attendance.objects.filter(status='absent').count()
+    """Get dashboard data from MongoDB - overall stats for cards, today's for chart"""
+    try:
+        student_manager = StudentMongoDBManager()
+        attendance_manager = AttendanceMongoDBManager()
         
+        total_students = 0
+        present_total = 0
+        late_total = 0
+        absent_total = 0
+        present_today = 0
+        late_today = 0
+        absent_today = 0
         recent = []
-        for record in Attendance.objects.all()[:5]:
-            recent.append({
-                'id': record.id,
-                'student_id': record.student.student_id,
-                'student_name': f"{record.student.first_name} {record.student.last_name}",
-                'status': record.status,
-                'timestamp': record.timestamp.isoformat()
-            })
-    else:
-        # hardcoded values for demo - replace with real data
+        
+        # Get today's date for the pie chart
+        today = datetime.now().date().isoformat()
+        
+        if student_manager.connected:
+            # Get total students count from MongoDB
+            total_students = student_manager.count()
+        
+        if attendance_manager.connected:
+            # Get OVERALL attendance stats from MongoDB for summary cards
+            all_attendance = list(attendance_manager.collection.find())
+            
+            for record in all_attendance:
+                status = record.get("status", "").lower()
+                if status == "present":
+                    present_total += 1
+                elif status == "late":
+                    late_total += 1
+                elif status == "absent":
+                    absent_total += 1
+            
+            # Get TODAY'S attendance stats for the pie chart
+            today_filter = {'date': today}
+            today_attendance = list(attendance_manager.collection.find(today_filter))
+            
+            for record in today_attendance:
+                status = record.get("status", "").lower()
+                if status == "present":
+                    present_today += 1
+                elif status == "late":
+                    late_today += 1
+                elif status == "absent":
+                    absent_today += 1
+            
+            # Get recent attendance (last 5 records) - ALL records, not filtered by date
+            recent_docs = list(attendance_manager.collection.find()
+                              .sort("timestamp", -1)  # Sort by timestamp descending
+                              .limit(5))
+            
+            for doc in recent_docs:
+                # Ensure status is properly formatted and lowercase for consistency
+                status = doc.get("status", "").lower()
+                recent.append({
+                    'id': str(doc.get('_id', '')),
+                    'student_id': doc.get('student_id', ''),
+                    'student_name': doc.get('student_name', 'Unknown'),
+                    'status': status,  # Use lowercase version
+                    'timestamp': doc.get("timestamp", ""),
+                    'notes': doc.get('notes', '-')
+                })
+                
+    except Exception as e:
+        print(f"Error in dashboard_data: {e}")
+        # Fallback to demo data with proper status values
         total_students = 25
-        present_today = 18
-        late_today = 4
-        absent_today = 3
+        present_today = 18  # Today's present count
+        late_today = 4      # Today's late count
+        absent_today = 3    # Today's absent count
         
         recent = [
             {
-                'id': 1,
+                'id': '1',
                 'student_id': 'STU001',
                 'student_name': 'John Doe',
                 'status': 'present',
-                'timestamp': timezone.now().isoformat()
+                'timestamp': datetime.now().isoformat(),
+                'notes': 'On time'
+            },
+            {
+                'id': '2',
+                'student_id': 'STU002',
+                'student_name': 'Jane Smith',
+                'status': 'late',
+                'timestamp': (datetime.now() - timedelta(hours=1)).isoformat(),
+                'notes': 'Arrived 15 minutes late'
+            },
+            {
+                'id': '3',
+                'student_id': 'STU003',
+                'student_name': 'Bob Johnson',
+                'status': 'present',
+                'timestamp': (datetime.now() - timedelta(days=1)).isoformat(),
+                'notes': 'Regular attendance'
             }
         ]
     
@@ -498,21 +761,312 @@ def dashboard_data(request):
         'success': True,
         'summary': {
             'total_students': total_students,
-            'present_today': present_today,
-            'late_today': late_today,
-            'absent_today': absent_today
+            'present_today': present_today,  # Today's present count for cards
+            'late_today': late_today,        # Today's late count for cards
+            'absent_today': absent_today,    # Today's absent count for cards
+            'present_today_chart': present_today,  # Today's present for chart
+            'late_today_chart': late_today,        # Today's late for chart
+            'absent_today_chart': absent_today     # Today's absent for chart
         },
         'recent': recent
     })
 
+@require_POST
+def delete_attendance(request, attendance_id):
+    """
+    Deletes an attendance record from both MongoDB and SQLite databases.
+    Expects POST (AJAX) with CSRF header.
+    """
+    try:
+        sqlite_deleted = False
+        mongo_deleted = False
+        message_parts = []
+        
+        # First, try to delete from SQLite
+        try:
+            # Try to find the record by ID
+            attendance_record = Attendance.objects.get(id=attendance_id)
+            attendance_record.delete()
+            sqlite_deleted = True
+            message_parts.append("SQLite")
+        except (Attendance.DoesNotExist, ValueError):
+            # If record doesn't exist by ID, try to find it by django_id
+            try:
+                attendance_record = Attendance.objects.get(django_id=attendance_id)
+                attendance_record.delete()
+                sqlite_deleted = True
+                message_parts.append("SQLite")
+            except (Attendance.DoesNotExist, ValueError):
+                sqlite_deleted = False
+        
+        # Then delete from MongoDB
+        mongo = AttendanceMongoDBManager()
+        if mongo.connected:
+            try:
+                # First try to delete by MongoDB's _id (ObjectId)
+                from bson import ObjectId
+                try:
+                    obj_id = ObjectId(attendance_id)
+                    mongo_result = mongo.collection.delete_one({"_id": obj_id})
+                    if mongo_result.deleted_count > 0:
+                        mongo_deleted = True
+                        message_parts.append("MongoDB")
+                except:
+                    # If not a valid ObjectId, try with django_id field
+                    mongo_result = mongo.collection.delete_one({"django_id": attendance_id})
+                    if mongo_result.deleted_count > 0:
+                        mongo_deleted = True
+                        message_parts.append("MongoDB")
+            except Exception as e:
+                print(f"Error deleting from MongoDB: {e}")
+                mongo_deleted = False
 
+        # Return appropriate response
+        if sqlite_deleted or mongo_deleted:
+            if sqlite_deleted and mongo_deleted:
+                message = "Attendance record deleted successfully from both databases"
+            else:
+                databases = " and ".join(message_parts)
+                message = f"Attendance record deleted successfully from {databases} only"
+            return JsonResponse({"success": True, "message": message})
+        else:
+            return JsonResponse({"success": False, "message": "Attendance record not found in either database"}, status=404)
 
-def attendance_details(request, attendance_id):
-    # not implemented yet - will add later
-    return JsonResponse({'success': False, 'message': 'Not implemented yet'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"success": False, "message": f"Error deleting attendance: {str(e)}"}, status=500)
 
+def edit_attendance(request, attendance_id):
+    """Edit attendance details - placeholder function"""
+    # For now, just redirect back to report page
+    # You can implement the actual edit functionality later
+    return redirect('report')
+
+@csrf_exempt
+def export_attendance_excel(request):
+    """Export filtered attendance records to Excel"""
+    attendance_manager = AttendanceMongoDBManager()
+
+    if not attendance_manager.connected:
+        return HttpResponse("MongoDB not connected", status=500)
+
+    # Get filter parameters from request
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    student_id = request.GET.get('student_id')
+
+    # Build filter based on request parameters
+    filter_dict = {}
+    
+    # Date range filter
+    if date_from and date_to:
+        filter_dict['date'] = {
+            '$gte': date_from,
+            '$lte': date_to
+        }
+    elif date_from:
+        filter_dict['date'] = {'$gte': date_from}
+    elif date_to:
+        filter_dict['date'] = {'$lte': date_to}
+    
+    # Student filter
+    if student_id:
+        filter_dict['student_id'] = student_id
+
+    # Get filtered records
+    if hasattr(attendance_manager, 'get_all_attendance_with_filter'):
+        records = attendance_manager.get_all_attendance_with_filter(filter_dict)
+    else:
+        # Fallback to all records if the method doesn't exist
+        records = attendance_manager.get_all_attendance()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Attendance"
+
+    # Headers - remove "Actions" column
+    headers = ["Date", "Student ID", "Name", "Status", "Time", "Notes"]
+    ws.append(headers)
+
+    # Rows
+    for rec in records:
+        ws.append([
+            rec.get("date", ""),
+            rec.get("student_id", ""),
+            rec.get("student_name", ""),
+            rec.get("status", ""),
+            str(rec.get("timestamp", "")),
+            rec.get("notes", ""),
+        ])
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="attendance_report.xlsx"'
+    wb.save(response)
+    return response
+
+@csrf_exempt
+def export_attendance_pdf(request):
+    """Export filtered attendance records to PDF"""
+    attendance_manager = AttendanceMongoDBManager()
+
+    if not attendance_manager.connected:
+        return HttpResponse("MongoDB not connected", status=500)
+
+    # Get filter parameters from request
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    student_id = request.GET.get('student_id')
+
+    # Build filter based on request parameters
+    filter_dict = {}
+    
+    # Date range filter
+    if date_from and date_to:
+        filter_dict['date'] = {
+            '$gte': date_from,
+            '$lte': date_to
+        }
+    elif date_from:
+        filter_dict['date'] = {'$gte': date_from}
+    elif date_to:
+        filter_dict['date'] = {'$lte': date_to}
+    
+    # Student filter
+    if student_id:
+        filter_dict['student_id'] = student_id
+
+    # Get filtered records
+    if hasattr(attendance_manager, 'get_all_attendance_with_filter'):
+        records = attendance_manager.get_all_attendance_with_filter(filter_dict)
+    else:
+        # Fallback to all records if the method doesn't exist
+        records = attendance_manager.get_all_attendance()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Add title
+    elements.append(Paragraph("Attendance Report", styles["Title"]))
+    elements.append(Spacer(1, 12))
+
+    # Table data (headers first) - remove "Actions" column
+    data = [["Date", "Student ID", "Name", "Status", "Time", "Notes"]]
+
+    for rec in records:
+        data.append([
+            rec.get("date", ""),
+            rec.get("student_id", ""),
+            rec.get("student_name", ""),
+            rec.get("status", ""),
+            str(rec.get("timestamp", "")),
+            rec.get("notes", ""),
+        ])
+
+    table = Table(data)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#007BFF")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+    ]))
+
+    elements.append(table)
+    doc.build(elements)
+
+    pdf = buffer.getvalue()
+    buffer.close()
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="attendance_report.pdf"'
+    response.write(pdf)
+    return response
+
+@login_required
 def test_page(request):
     return render(request, 'test_page.html')
+
+@login_required
+def student_details(request):
+    # Get all students from MongoDB
+    student_manager = StudentMongoDBManager()
+    students = list(student_manager.get_all_students())
+
+    # Calculate stats
+    total_students = len(students)
+    active_students = sum(1 for s in students if s.get("is_active", False))
+    inactive_students = total_students - active_students
+
+    context = {
+        "students": students,
+        "total_students": total_students,
+        "active_students": active_students,
+        "inactive_students": inactive_students,
+    }
+    return render(request, "student_details.html", context)
+
+@require_POST
+def delete_student(request, student_id):
+    """ 
+    Deletes a student from MongoDB by student_id and returns JSON.
+    Expects POST (AJAX) with CSRF header.
+    """
+    try:
+        mongo = StudentMongoDBManager()
+        if not getattr(mongo, "connected", True):
+            return JsonResponse({"success": False, "message": "MongoDB not connected"}, status=500)
+
+        result = mongo.delete_by_student_id(student_id)
+        # result is a pymongo DeleteResult (has deleted_count)
+        deleted_count = getattr(result, "deleted_count", None)
+
+        if deleted_count is None:
+            # fallback for custom manager return types
+            if result:
+                return JsonResponse({"success": True, "message": "Student deleted successfully"})
+            return JsonResponse({"success": False, "message": "Student not found"}, status=404)
+
+        if deleted_count > 0:
+            return JsonResponse({"success": True, "message": "Student deleted successfully"})
+        else:
+            return JsonResponse({"success": False, "message": "Student not found"}, status=404)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"success": False, "message": f"Error deleting student: {str(e)}"}, status=500)
+
+
+def edit_student(request, student_id):
+    """Edit student details in MongoDB"""
+    mongo = StudentMongoDBManager()
+    if not mongo.connected:
+        return JsonResponse({"success": False, "message": "MongoDB not connected"})
+
+    student = mongo.find_by_student_id(student_id)
+    if not student:
+        return JsonResponse({"success": False, "message": "Student not found"})
+
+    if request.method == "POST":
+        data = {
+            "name": request.POST.get("name"),
+            "first_name": request.POST.get("first_name"),
+            "last_name": request.POST.get("last_name"),
+            "email": request.POST.get("email"),
+            "phone": request.POST.get("phone"),
+            "class_name": request.POST.get("class_name"),
+            "section": request.POST.get("section"),
+            "is_active": request.POST.get("is_active") == "on",
+        }
+        mongo.update_student(student_id, data)
+        return redirect("student_details")
+
+    return render(request, "edit_student.html", {"student": student})
 
 @csrf_exempt
 def test_mongodb(request):

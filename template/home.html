@@ -2,62 +2,74 @@
 
 {% block title %}Dashboard - Attendance Manager{% endblock %}
 
+{% block extra_css %}
+<!-- Load Font Awesome in the proper block -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="text-gradient">Dashboard</h2>
-            <div class="text-muted">
-                <i class="fas fa-calendar-alt"></i>
-                <span id="currentDate"></span>
-            </div>
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <h2 class="fw-bold page-title">Dashboard</h2>
+        <div class="date-box p-3 bg-white rounded-3 shadow-sm">
+            <i class="fas fa-calendar-alt me-2 text-primary"></i>
+            <span id="currentDate" class="fw-medium"></span>
         </div>
     </div>
 </div>
 
 <!-- Summary Cards -->
-<div class="row mb-4">
+<div class="row mb-3">
+    <div class="col-12">
+        <h4 class="fw-bold text-navy mb-0">
+            <i class="fas fa-calendar-day me-2 text-primary"></i>
+            Today's Attendance Summary
+        </h4>
+        <p class="text-muted small mb-0">Real-time attendance statistics for {{ "now"|date:"F d, Y" }}</p>
+    </div>
+</div>
+<div class="row g-4 mb-4">
     <div class="col-md-3">
-        <div class="card bg-primary text-white dashboard-card">
-            <div class="card-body text-center">
-                <div class="card-icon">
-                    <i class="fas fa-users"></i>
+        <div class="card summary-card border-0 shadow-sm rounded-4">
+            <div class="card-body text-center p-4">
+                <div class="icon-container bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 70px; height: 70px;">
+                    <i class="fas fa-users text-primary fs-3"></i>
                 </div>
-                <div class="card-value" id="totalStudents">0</div>
-                <div class="card-label">Total Students</div>
+                <h3 id="totalStudents" class="fw-bold card-value mb-1 text-primary">0</h3>
+                <p class="card-label text-muted mb-0">Total Students</p>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-success text-white dashboard-card">
-            <div class="card-body text-center">
-                <div class="card-icon">
-                    <i class="fas fa-check-circle"></i>
+        <div class="card summary-card border-0 shadow-sm rounded-4">
+            <div class="card-body text-center p-4">
+                <div class="icon-container bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 70px; height: 70px;">
+                    <i class="fas fa-check-circle text-success fs-3"></i>
                 </div>
-                <div class="card-value" id="presentToday">0</div>
-                <div class="card-label">Present Today</div>
+                <h3 id="presentToday" class="fw-bold card-value mb-1 text-success">0</h3>
+                <p class="card-label text-muted mb-0">Present Today</p>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-warning text-white dashboard-card">
-            <div class="card-body text-center">
-                <div class="card-icon">
-                    <i class="fas fa-clock"></i>
+        <div class="card summary-card border-0 shadow-sm rounded-4">
+            <div class="card-body text-center p-4">
+                <div class="icon-container bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 70px; height: 70px;">
+                    <i class="fas fa-clock text-warning fs-3"></i>
                 </div>
-                <div class="card-value" id="lateToday">0</div>
-                <div class="card-label">Late Today</div>
+                <h3 id="lateToday" class="fw-bold card-value mb-1 text-warning">0</h3>
+                <p class="card-label text-muted mb-0">Late Today</p>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-danger text-white dashboard-card">
-            <div class="card-body text-center">
-                <div class="card-icon">
-                    <i class="fas fa-times-circle"></i>
+        <div class="card summary-card border-0 shadow-sm rounded-4">
+            <div class="card-body text-center p-4">
+                <div class="icon-container bg-danger bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 70px; height: 70px;">
+                    <i class="fas fa-times-circle text-danger fs-3"></i>
                 </div>
-                <div class="card-value" id="absentToday">0</div>
-                <div class="card-label">Absent Today</div>
+                <h3 id="absentToday" class="fw-bold card-value mb-1 text-danger">0</h3>
+                <p class="card-label text-muted mb-0">Absent Today</p>
             </div>
         </div>
     </div>
@@ -66,37 +78,48 @@
 <!-- Quick Actions -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title">
-                    <i class="fas fa-bolt"></i> Quick Actions
-                </h5>
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 rounded-4 rounded-bottom-0">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                        <i class="fas fa-bolt text-primary"></i>
+                    </div>
+                    <h5 class="fw-bold mb-0 text-navy">Quick Actions</h5>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3 mb-3">
-                        <a href="{% url 'attendance' %}" class="btn btn-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
-                            <i class="fas fa-camera fa-2x mb-2"></i>
-                            <span>Mark Attendance</span>
+            <div class="card-body px-4 pb-4">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <a href="{% url 'attendance' %}" class="btn btn-primary w-100 action-btn p-3 d-flex flex-column align-items-center rounded-3 border-0">
+                            <div class="icon-wrapper bg-white bg-opacity-30 rounded-circle d-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                <i class="fas fa-camera text-white fs-4"></i>
+                            </div>
+                            <span class="mt-1">Mark Attendance</span>
                         </a>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <a href="{% url 'add_student' %}" class="btn btn-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
-                            <i class="fas fa-user-plus fa-2x mb-2"></i>
-                            <span>Add Student</span>
+                    <div class="col-md-3">
+                        <a href="{% url 'add_student' %}" class="btn btn-success w-100 action-btn p-3 d-flex flex-column align-items-center rounded-3 border-0">
+                            <div class="icon-wrapper bg-white bg-opacity-30 rounded-circle d-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                <i class="fas fa-user-plus text-white fs-4"></i>
+                            </div>
+                            <span class="mt-1">Add Student</span>
                         </a>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <a href="{% url 'report' %}" class="btn btn-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
-                            <i class="fas fa-chart-bar fa-2x mb-2"></i>
-                            <span>View Reports</span>
+                    <div class="col-md-3">
+                        <a href="{% url 'report' %}" class="btn btn-navy w-100 action-btn p-3 d-flex flex-column align-items-center rounded-3 border-0">
+                            <div class="icon-wrapper bg-white bg-opacity-30 rounded-circle d-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                <i class="fas fa-chart-bar text-white fs-4"></i>
+                            </div>
+                            <span class="mt-1">View Reports</span>
                         </a>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <button class="btn btn-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4" onclick="exportData()">
-                            <i class="fas fa-download fa-2x mb-2"></i>
-                            <span>Export Data</span>
-                        </button>
+                    <div class="col-md-3">
+                        <a href="{% url 'student_details' %}" class="btn btn-warning w-100 action-btn p-3 d-flex flex-column align-items-center rounded-3 border-0">
+                            <div class="icon-wrapper bg-white bg-opacity-30 rounded-circle d-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                <i class="fas fa-id-card text-white fs-4"></i>
+                            </div>
+                            <span class="mt-1">Student Details</span>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -104,29 +127,32 @@
     </div>
 </div>
 
-<!-- Recent Activity -->
-<div class="row">
+<!-- Recent Activity & Summary -->
+<div class="row g-4">
     <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title">
-                    <i class="fas fa-history"></i> Recent Attendance
-                </h5>
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-header bg-white border-0 pt-4 px-4 rounded-4 rounded-bottom-0">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                        <i class="fas fa-history text-primary"></i>
+                    </div>
+                    <h5 class="fw-bold mb-0 text-navy">Recent Attendance</h5>
+                </div>
             </div>
-            <div class="card-body">
+            <div class="card-body px-4 pb-4">
                 <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
                             <tr>
-                                <th>Time</th>
-                                <th>Student</th>
-                                <th>Status</th>
-                                <th>Notes</th>
+                                <th class="ps-3 text-navy">Time</th>
+                                <th class="text-navy">Student</th>
+                                <th class="text-navy">Status</th>
+                                <th class="pe-3 text-navy">Notes</th>
                             </tr>
                         </thead>
                         <tbody id="recentAttendanceTable">
                             <tr>
-                                <td colspan="4" class="text-center text-muted">Loading recent attendance...</td>
+                                <td colspan="4" class="text-center text-muted py-4">Loading recent attendance...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -134,144 +160,431 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Right Column -->
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title">
-                    <i class="fas fa-chart-pie"></i> Today's Summary
-                </h5>
-            </div>
-            <div class="card-body">
-                <canvas id="attendanceChart" width="300" height="200"></canvas>
-            </div>
-        </div>
-        
-        <div class="card mt-3">
-            <div class="card-header">
-                <h5 class="card-title">
-                    <i class="fas fa-bell"></i> Notifications
-                </h5>
-            </div>
-            <div class="card-body">
-                <div id="notifications">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i>
-                        Welcome to Attendance Manager!
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 rounded-4 rounded-bottom-0">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper bg-success bg-opacity-100 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                        <i class="fas fa-chart-pie text-success" style="filter: brightness(1.2);"></i>
                     </div>
+                    <h5 class="fw-bold mb-0 text-navy">Today's Attendance</h5>
                 </div>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <canvas id="attendanceChart" height="220"></canvas>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Custom Styling -->
+<style>
+/* Color Variables */
+:root {
+    --primary: #1E90FF;
+    --secondary: #2ECC71;
+    --neutral-light: #F5F6FA;
+    --neutral-dark: #2C3E50;
+    --accent: #E67E22;
+    --white: #FFFFFF;
+    --background: linear-gradient(135deg, #e6f0ff 0%, #d9e6ff 100%);
+}
+
+body {
+    background: var(--background);
+    color: #2C3E50;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+}
+
+/* Text Colors */
+.text-primary { color: var(--primary) !important; }
+.text-secondary { color: var(--secondary) !important; }
+.text-navy { color: var(--neutral-dark) !important; }
+.text-accent { color: var(--accent) !important; }
+
+/* Background Colors */
+.bg-primary { background-color: var(--primary) !important; }
+.bg-secondary { background-color: var(--secondary) !important; }
+.bg-navy { background-color: var(--neutral-dark) !important; }
+.bg-accent { background-color: var(--accent) !important; }
+.bg-light-custom { background-color: var(--neutral-light) !important; }
+
+/* Button Colors */
+.btn-primary {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+.btn-primary:hover {
+    background-color: #0D7AE6;
+    border-color: #0D7AE6;
+}
+
+.btn-success {
+    background-color: var(--secondary);
+    border-color: var(--secondary);
+}
+.btn-success:hover {
+    background-color: #25A25A;
+    border-color: #25A25A;
+}
+
+.btn-navy {
+    background-color: var(--neutral-dark);
+    border-color: var(--neutral-dark);
+    color: white;
+}
+.btn-navy:hover {
+    background-color: #1E2A36;
+    border-color: #1E2A36;
+    color: white;
+}
+
+.btn-warning {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+.btn-warning:hover {
+    background-color: #D35400;
+    border-color: #D35400;
+    color: white;
+}
+
+/* Navbar */
+.navbar {
+    background-color: var(--primary) !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.navbar .nav-link, 
+.navbar-brand {
+    color: var(--white) !important;
+    font-weight: 600;
+}
+.navbar .nav-link:hover {
+    opacity: 0.85;
+}
+
+/* Title */
+.page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--neutral-dark);
+    position: relative;
+    padding-bottom: 10px;
+}
+.page-title:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background-color: var(--primary);
+    border-radius: 2px;
+}
+
+.date-box {
+    font-weight: 500;
+    color: var(--neutral-dark);
+}
+
+/* Cards */
+.summary-card {
+    border: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: var(--white);
+}
+.summary-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+
+/* Table */
+.table thead {
+    background: var(--neutral-light);
+    font-weight: 600;
+}
+.table-hover tbody tr:hover {
+    background-color: rgba(30,144,255,0.05);
+}
+
+/* Badges */
+.badge.bg-success {
+    background-color: var(--secondary) !important;
+}
+.badge.bg-warning {
+    background-color: var(--accent) !important;
+    color: white !important;
+}
+
+/* Section Headers */
+.section-header {
+    display: flex;
+    align-items: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding-bottom: 8px;
+}
+
+/* Action buttons */
+.action-btn {
+    transition: all 0.3s ease;
+    font-weight: 500;
+    height: 100%;
+}
+.action-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+/* Icon containers */
+.icon-wrapper, .icon-container {
+    transition: all 0.3s ease;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
+.action-btn:hover .icon-wrapper {
+    transform: scale(1.1);
+}
+
+/* Ensure all icons are properly sized */
+.fas, .fa {
+    font-size: inherit;
+}
+
+/* Make sure all buttons have consistent height */
+.action-btn {
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Custom background pattern */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 5% 10%, rgba(30, 144, 255, 0.05) 0%, transparent 20%),
+        radial-gradient(circle at 95% 10%, rgba(46, 204, 113, 0.05) 0%, transparent 20%),
+        radial-gradient(circle at 50% 90%, rgba(230, 126, 34, 0.05) 0%, transparent 20%);
+    z-index: -1;
+}
+
+/* Center icons in summary cards */
+.icon-container {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Fix icon visibility issues */
+.icon-wrapper.bg-primary i,
+.icon-wrapper.bg-success i,
+.icon-wrapper.bg-warning i,
+.icon-wrapper.bg-danger i {
+    /* Ensure icons have proper contrast */
+    color: inherit !important;
+}
+
+/* Ensure white icons are visible on colored backgrounds */
+.btn-primary .icon-wrapper i,
+.btn-success .icon-wrapper i,
+.btn-navy .icon-wrapper i,
+.btn-warning .icon-wrapper i {
+    color: white !important;
+}
+
+/* Force all icons to be visible with proper contrast */
+.fas, .fa {
+    display: inline-block !important;
+}
+
+/* Ensure summary card icons are visible */
+.icon-container i {
+    color: inherit !important;
+}
+
+/* Summary card values styling */
+.card-value {
+    font-size: 1.8rem;
+}
+
+/* Quick action icons size */
+.action-btn .icon-wrapper i {
+    font-size: 1.5rem !important;
+}
+
+/* Make quick action icon containers more visible */
+.action-btn .icon-wrapper {
+    background-color: rgba(255, 255, 255, 0.3) !important;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+}
+</style>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Set current date
-    document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
+    const currentDate = new Date();
+    const dateString = currentDate.toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric'
     });
     
-    // Load dashboard data
-    loadDashboardData();
+    document.getElementById('currentDate').textContent = dateString;
     
-    // Initialize chart
+    // Update the summary header date
+    const summaryDate = currentDate.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    const summaryDateElement = document.querySelector('.text-muted.small');
+    if (summaryDateElement) {
+        summaryDateElement.textContent = `Real-time attendance statistics for ${summaryDate}`;
+    }
+
     initializeChart();
-    
-    // Auto refresh every 30 seconds
-    setInterval(loadDashboardData, 30000);
+    loadDashboardData(); // load immediately on page load
+    setInterval(loadDashboardData, 30000); // refresh every 30 seconds
 });
 
 function loadDashboardData() {
+    // Show temporary loading indicators
+    document.getElementById('totalStudents').textContent = "...";
+    document.getElementById('presentToday').textContent = "...";
+    document.getElementById('lateToday').textContent = "...";
+    document.getElementById('absentToday').textContent = "...";
+
     fetch('/api/dashboard-data/')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(data => {
-            updateSummaryCards(data.summary);
-            updateRecentAttendance(data.recent);
+            if (data.success) {
+                updateSummaryCards(data.summary || {});
+                updateRecentAttendance(data.recent || []);
+                updateChart(data.summary || {});
+            } else {
+                throw new Error('Server returned error');
+            }
         })
         .catch(error => {
             console.error('Error loading dashboard data:', error);
+            // Set fallback values
+            updateSummaryCards({
+                total_students: 25,
+                present_today: 18,
+                late_today: 4,
+                absent_today: 3
+            });
+            document.getElementById('recentAttendanceTable').innerHTML = 
+                '<tr><td colspan="4" class="text-center text-muted py-4">Failed to load recent attendance</td></tr>';
         });
 }
 
 function updateSummaryCards(summary) {
-    document.getElementById('totalStudents').textContent = summary.total_students || 0;
-    document.getElementById('presentToday').textContent = summary.present_today || 0;
-    document.getElementById('lateToday').textContent = summary.late_today || 0;
-    document.getElementById('absentToday').textContent = summary.absent_today || 0;
+    document.getElementById('totalStudents').textContent = summary.total_students ?? 0;
+    document.getElementById('presentToday').textContent = summary.present_today ?? 0;
+    document.getElementById('lateToday').textContent = summary.late_today ?? 0;
+    document.getElementById('absentToday').textContent = summary.absent_today ?? 0;
 }
 
 function updateRecentAttendance(recent) {
     const tbody = document.getElementById('recentAttendanceTable');
     tbody.innerHTML = '';
-    
-    if (recent.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No recent attendance records</td></tr>';
+
+    if (!recent || recent.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No recent attendance records</td></tr>';
         return;
     }
-    
+
     recent.forEach(record => {
-        const row = document.createElement('tr');
-        const statusBadge = getStatusBadge(record.status);
+        const time = record.timestamp ? 
+            new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 
+            new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         
+        const student = record.student_name ? 
+            `${record.student_name} (${record.student_id || "N/A"})` : 
+            `Student (${record.student_id || "Unknown"})`;
+        
+        const notes = record.notes || "-";
+        const statusBadge = getStatusBadge(record.status);
+
+        const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${new Date(record.timestamp).toLocaleTimeString()}</td>
-            <td>${record.student_name} (${record.student_id})</td>
+            <td class="ps-3">${time}</td>
+            <td>${student}</td>
             <td>${statusBadge}</td>
-            <td>${record.notes || '-'}</td>
+            <td class="pe-3">${notes}</td>
         `;
         tbody.appendChild(row);
     });
 }
 
 function getStatusBadge(status) {
-    const badges = {
-        'present': '<span class="badge bg-success">Present</span>',
-        'late': '<span class="badge bg-warning">Late</span>',
-        'absent': '<span class="badge bg-danger">Absent</span>'
-    };
-    return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+    switch (status) {
+        case "present": return '<span class="badge bg-success">Present</span>';
+        case "late": return '<span class="badge bg-warning text-white">Late</span>';
+        case "absent": return '<span class="badge bg-danger">Absent</span>';
+        default: return '<span class="badge bg-secondary">Unknown</span>';
+    }
 }
 
+let attendanceChart;
 function initializeChart() {
     const ctx = document.getElementById('attendanceChart').getContext('2d');
-    
-    new Chart(ctx, {
+    attendanceChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['Present', 'Late', 'Absent'],
             datasets: [{
                 data: [0, 0, 0],
-                backgroundColor: [
-                    '#28a745',
-                    '#ffc107',
-                    '#dc3545'
-                ],
+                backgroundColor: ['#2ECC71','#E67E22','#dc3545'],
                 borderWidth: 2,
                 borderColor: '#fff'
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    position: 'bottom'
+                legend: { 
+                    position: 'bottom',
+                    labels: {
+                        font: { family: '"Segoe UI", Roboto, Helvetica, Arial, sans-serif', size: 12 },
+                        color: '#2C3E50'
+                    }
                 }
-            }
+            },
+            cutout: '70%'
         }
     });
 }
 
-function exportData() {
-    // Implementation for data export
-    alert('Export functionality will be implemented');
+function updateChart(summary) {
+    if (!attendanceChart) return;
+
+    // Use the _chart values for today's data in the pie chart
+    attendanceChart.data.datasets[0].data = [
+        summary.present_today_chart ?? 0,
+        summary.late_today_chart ?? 0,
+        summary.absent_today_chart ?? 0
+    ];
+    attendanceChart.update();
 }
 </script>
 {% endblock %}

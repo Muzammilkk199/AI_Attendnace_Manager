@@ -192,11 +192,13 @@ class Attendance(models.Model):
         ('present', 'Present'),
         ('late', 'Late'),
         ('absent', 'Absent'),
+        ('checkout', 'Checkout'),
+        ('day_finished', 'Day Finished'),
     ]
     
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     date = models.DateField(default=timezone.now)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='present')
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='present')
     timestamp = models.DateTimeField(auto_now_add=True)
     confidence = models.FloatField(default=0.0)
     notes = models.TextField(blank=True, null=True)
@@ -285,27 +287,76 @@ class Attendance(models.Model):
         pass
     
     @classmethod
-    def get_attendance_status_by_time(cls, current_time=None):
+    def get_attendance_status_by_time(cls, current_time=None, force_checkout=False):
         """
         Determine attendance status based on current time
         - Before 8:00 AM: Present
-        - After 8:00 AM: Late
+        - 8:00 AM to 2:00 PM: Late
+        - After 2:00 PM: Day Finished (no scanning allowed)
+        - Force checkout: Override time logic for manual checkout
         """
         from datetime import datetime, time
+        import logging
         
-        if current_time is None:
-            current_time = datetime.now().time()
+        logger = logging.getLogger(__name__)
         
-        # Define cutoff time (8:00 AM)
-        cutoff_time = time(8, 0)  # 8:00 AM
-        
-        if current_time <= cutoff_time:
-            return 'present'
-        else:
-            return 'late'
+        try:
+            if current_time is None:
+                current_time = datetime.now().time()
+            
+            # Log the input type for debugging
+            logger.info(f"get_attendance_status_by_time called with current_time type: {type(current_time)}, value: {current_time}")
+            
+            # Handle string time input (convert to time object)
+            if isinstance(current_time, str):
+                try:
+                    # Try to parse time string (HH:MM:SS or HH:MM format)
+                    if len(current_time.split(':')) == 3:
+                        hour, minute, second = map(int, current_time.split(':'))
+                        current_time = time(hour, minute, second)
+                    elif len(current_time.split(':')) == 2:
+                        hour, minute = map(int, current_time.split(':'))
+                        current_time = time(hour, minute)
+                    else:
+                        # Fallback to current time if parsing fails
+                        current_time = datetime.now().time()
+                except (ValueError, TypeError) as e:
+                    logger.error(f"Error parsing time string '{current_time}': {e}")
+                    # Fallback to current time if parsing fails
+                    current_time = datetime.now().time()
+            
+            # Ensure current_time is a time object
+            if not isinstance(current_time, time):
+                logger.error(f"current_time is not a time object: {type(current_time)}")
+                current_time = datetime.now().time()
+            
+            # If force checkout is requested, return checkout regardless of time
+            if force_checkout:
+                return 'checkout'
+            
+            # Define time thresholds
+            morning_cutoff = time(8, 0)    # 8:00 AM
+            checkout_cutoff = time(14, 0)  # 2:00 PM (day finished time)
+            
+            logger.info(f"Comparing current_time {current_time} with morning_cutoff {morning_cutoff} and checkout_cutoff {checkout_cutoff}")
+            
+            if current_time <= morning_cutoff:
+                return 'present'
+            elif current_time <= checkout_cutoff:
+                return 'late'
+            else:
+                return 'day_finished'  # After 2:00 PM - day is finished
+                
+        except Exception as e:
+            logger.error(f"Error in get_attendance_status_by_time: {e}")
+            logger.error(f"current_time type: {type(current_time)}, value: {current_time}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            # Return a safe default
+            return 'day_finished'
     
     @classmethod
-    def mark_automatic_attendance(cls, student, confidence=0.95, notes=None):
+    def mark_automatic_attendance(cls, student, confidence=0.95, notes=None, force_checkout=False):
         """
         Automatically mark attendance for a student based on current time
         Updates existing attendance if student was previously marked as absent
@@ -321,11 +372,22 @@ class Attendance(models.Model):
             date=today
         ).first()
         
-        # Determine status based on time
-        status = cls.get_attendance_status_by_time(current_time)
+        # Determine status based on time and force checkout flag
+        status = cls.get_attendance_status_by_time(current_time, force_checkout)
+        
+        # If day is finished (after 2:00 PM), prevent attendance marking
+        if status == 'day_finished' and not force_checkout:
+            return {
+                'success': False,
+                'message': 'The day is finished! You cannot scan your face after 2:00 PM.',
+                'status': 'day_finished',
+                'time': current_time.strftime('%H:%M:%S'),
+                'day_finished': True,
+                'error_type': 'after_hours'
+            }
         
         if existing_attendance:
-            # If student was previously marked as absent, update to present/late
+            # If student was previously marked as absent, update to present/late/checkout
             if existing_attendance.status == 'absent':
                 existing_attendance.status = status
                 existing_attendance.confidence = confidence
@@ -342,8 +404,42 @@ class Attendance(models.Model):
                     'confidence': confidence,
                     'updated_from_absent': True
                 }
+            # Allow checkout even if already marked present/late (end of day checkout)
+            elif status == 'checkout' and existing_attendance.status in ['present', 'late']:
+                existing_attendance.status = 'checkout'
+                existing_attendance.confidence = confidence
+                existing_attendance.notes = notes or f'End of day checkout - {status.title()}'
+                existing_attendance.timestamp = datetime.now()
+                existing_attendance.save()
+                
+                return {
+                    'success': True,
+                    'message': f'Checkout marked for {student.name} (was {existing_attendance.status.upper()})',
+                    'status': status,
+                    'time': current_time.strftime('%H:%M:%S'),
+                    'attendance_id': existing_attendance.id,
+                    'confidence': confidence,
+                    'checkout_update': True
+                }
+            # Allow manual checkout regardless of time or existing status
+            elif notes and 'checkout' in notes.lower():
+                existing_attendance.status = 'checkout'
+                existing_attendance.confidence = confidence
+                existing_attendance.notes = notes or f'Manual checkout - {status.title()}'
+                existing_attendance.timestamp = datetime.now()
+                existing_attendance.save()
+                
+                return {
+                    'success': True,
+                    'message': f'Manual checkout marked for {student.name} (was {existing_attendance.status.upper()})',
+                    'status': 'checkout',
+                    'time': current_time.strftime('%H:%M:%S'),
+                    'attendance_id': existing_attendance.id,
+                    'confidence': confidence,
+                    'manual_checkout': True
+                }
             else:
-                # Student already has present/late attendance - prevent duplicate
+                # Student already has attendance - prevent duplicate
                 return {
                     'success': False,
                     'message': f'Attendance already marked for {student.name} today',
@@ -436,7 +532,9 @@ class Attendance(models.Model):
             'present': attendance_records.filter(status='present').count(),
             'late': attendance_records.filter(status='late').count(),
             'absent': attendance_records.filter(status='absent').count(),
-            'scanned': attendance_records.filter(status__in=['present', 'late']).count(),
+            'checkout': attendance_records.filter(status='checkout').count(),
+            'day_finished': attendance_records.filter(status='day_finished').count(),
+            'scanned': attendance_records.filter(status__in=['present', 'late', 'checkout']).count(),
             'not_scanned': 0
         }
         

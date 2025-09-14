@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+
+{% block title %}User Management - Attendance Manager{% endblock %}
+
+{% block extra_css %}
+<!-- Load Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+/* Color Variables */
+:root {
+    --primary: #1E90FF;
+    --secondary: #2ECC71;
+    --neutral-light: #F5F6FA;
+    --neutral-dark: #2C3E50;
+    --accent: #E67E22;
+    --white: #FFFFFF;
+    --background: linear-gradient(135deg, #e6f0ff 0%, #d9e6ff 100%);
+}
+
+body {
+    background: var(--background);
+    color: #2C3E50;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+}
+
+/* Text Colors */
+.text-primary { color: var(--primary) !important; }
+.text-secondary { color: var(--secondary) !important; }
+.text-navy { color: var(--neutral-dark) !important; }
+.text-accent { color: var(--accent) !important; }
+
+/* Title */
+.page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--neutral-dark);
+    position: relative;
+    padding-bottom: 10px;
+}
+.page-title:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background-color: var(--primary);
+    border-radius: 2px;
+}
+
+.date-box {
+    font-weight: 500;
+    color: var(--neutral-dark);
+}
+
+/* Cards */
+.card {
+    border: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: var(--white);
+}
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+}
+
+/* Form Controls */
+.form-control, .form-select {
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.2rem rgba(30, 144, 255, 0.25);
+}
+
+/* Custom background pattern */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 5% 10%, rgba(30, 144, 255, 0.05) 0%, transparent 20%),
+        radial-gradient(circle at 95% 10%, rgba(46, 204, 113, 0.05) 0%, transparent 20%),
+        radial-gradient(circle at 50% 90%, rgba(230, 126, 34, 0.05) 0%, transparent 20%);
+    z-index: -1;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <h2 class="fw-bold page-title">User Management</h2>
+        <div class="date-box p-3 bg-white rounded-3 shadow-sm">
+            <i class="fas fa-users-cog me-2 text-primary"></i>
+            <span class="fw-medium">Admin Panel</span>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Create User Form -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 rounded-4 rounded-bottom-0">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                        <i class="fas fa-user-plus text-primary"></i>
+                    </div>
+                    <h5 class="fw-bold mb-0 text-navy">Create New User</h5>
+                </div>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <form method="post" id="createUserForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="username" class="form-label text-navy fw-medium">Username *</label>
+                        <input type="text" class="form-control rounded-3 border-1" id="username" name="username" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label text-navy fw-medium">Email *</label>
+                        <input type="email" class="form-control rounded-3 border-1" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label text-navy fw-medium">Password *</label>
+                        <input type="password" class="form-control rounded-3 border-1" id="password" name="password" required>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="first_name" class="form-label text-navy fw-medium">First Name</label>
+                                <input type="text" class="form-control rounded-3 border-1" id="first_name" name="first_name">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="last_name" class="form-label text-navy fw-medium">Last Name</label>
+                                <input type="text" class="form-control rounded-3 border-1" id="last_name" name="last_name">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_staff" name="is_staff">
+                            <label class="form-check-label text-navy fw-medium" for="is_staff">
+                                Admin Privileges
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 rounded-3 border-0 py-2">
+                        <i class="fas fa-user-plus me-2"></i> Create User
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Users List -->
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 rounded-4 rounded-bottom-0">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                        <i class="fas fa-users text-success"></i>
+                    </div>
+                    <h5 class="fw-bold mb-0 text-navy">System Users</h5>
+                </div>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-navy">Username</th>
+                                <th class="text-navy">Email</th>
+                                <th class="text-navy">Name</th>
+                                <th class="text-navy">Role</th>
+                                <th class="text-navy">Status</th>
+                                <th class="text-navy">Last Login</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>{{ user.first_name }} {{ user.last_name }}</td>
+                                <td>
+                                    {% if user.is_staff %}
+                                        <span class="badge bg-warning text-dark">Admin</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">User</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.last_login %}
+                                        {{ user.last_login|date:"M d, Y H:i" }}
+                                    {% else %}
+                                        <span class="text-muted">Never</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    <i class="fas fa-users fs-1 mb-2 d-block"></i>
+                                    No users found
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('createUserForm');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        // Show loading state
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating...';
+        submitBtn.disabled = true;
+        
+        fetch('{% url "user_management" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                showNotification(data.message, 'success');
+                // Reset form
+                form.reset();
+                // Reload page to show new user
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showNotification(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while creating the user', 'danger');
+        })
+        .finally(() => {
+            // Reset button state
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    });
+});
+
+function showNotification(message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

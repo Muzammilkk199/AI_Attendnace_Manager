@@ -4,75 +4,88 @@
 {% block title %}Add Student - Attendance Manager{% endblock %}
 
 {% block content %}
-<div class="row">
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <h2 class="fw-bold page-title">Add Student</h2>
+        <div class="date-box p-3 bg-white rounded-3 shadow-sm">
+            <i class="fas fa-user-plus me-2 text-primary"></i>
+            <span class="fw-medium">Student Registration</span>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
     <!-- Student Information Form -->
     <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <i class="fas fa-user-plus"></i> Student Information
-                </h3>
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 rounded-4 rounded-bottom-0">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                        <i class="fas fa-user-plus text-primary"></i>
+                    </div>
+                    <h5 class="fw-bold mb-0 text-navy">Student Information</h5>
+                </div>
             </div>
-            <div class="card-body">
+            <div class="card-body px-4 pb-4">
                 <form method="post" id="studentForm">
                     {% csrf_token %}
-                    <div class="row">
+                    <div class="row g-3">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="firstName" class="form-label">First Name *</label>
-                                <input type="text" class="form-control" id="firstName" name="first_name" required>
+                                <label for="firstName" class="form-label text-navy fw-medium">First Name *</label>
+                                <input type="text" class="form-control rounded-3 border-1" id="firstName" name="first_name" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="lastName" class="form-label">Last Name *</label>
-                                <input type="text" class="form-control" id="lastName" name="last_name" required>
+                                <label for="lastName" class="form-label text-navy fw-medium">Last Name *</label>
+                                <input type="text" class="form-control rounded-3 border-1" id="lastName" name="last_name" required>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="row">
+                    <div class="row g-3">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="studentId" class="form-label">Student ID *</label>
-                                <input type="text" class="form-control" id="studentId" name="student_id" required>
+                                <label for="studentId" class="form-label text-navy fw-medium">Student ID *</label>
+                                <input type="text" class="form-control rounded-3 border-1" id="studentId" name="student_id" required>
                                 <div class="form-text">Unique identifier for the student</div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="email" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="email" name="email">
+                                <label for="email" class="form-label text-navy fw-medium">Email</label>
+                                <input type="email" class="form-control rounded-3 border-1" id="email" name="email">
                             </div>
                         </div>
                     </div>
                     
-                    <div class="row">
+                    <div class="row g-3">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="phone" class="form-label">Phone Number</label>
-                                <input type="tel" class="form-control" id="phone" name="phone">
+                                <label for="phone" class="form-label text-navy fw-medium">Phone Number</label>
+                                <input type="tel" class="form-control rounded-3 border-1" id="phone" name="phone">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="class" class="form-label">Class/Grade</label>
-                                <input type="text" class="form-control" id="class" name="class_name">
+                                <label for="class" class="form-label text-navy fw-medium">Class/Grade</label>
+                                <input type="text" class="form-control rounded-3 border-1" id="class" name="class_name">
                             </div>
                         </div>
                     </div>
                     
-                    <div class="row">
+                    <div class="row g-3">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="section" class="form-label">Section</label>
-                                <input type="text" class="form-control" id="section" name="section">
+                                <label for="section" class="form-label text-navy fw-medium">Section</label>
+                                <input type="text" class="form-control rounded-3 border-1" id="section" name="section">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="isActive" class="form-label">Status</label>
-                                <select class="form-select" id="isActive" name="is_active">
+                                <label for="isActive" class="form-label text-navy fw-medium">Status</label>
+                                <select class="form-select rounded-3 border-1" id="isActive" name="is_active">
                                     <option value="true" selected>Active</option>
                                     <option value="false">Inactive</option>
                                 </select>
@@ -89,20 +102,20 @@
                         <strong>DEBUG:</strong> Buttons should be visible below. If you don't see them, there's a rendering issue.
                     </div>
                     
-                    <div class="d-flex justify-content-between">
-                        <a href="{% url 'home' %}" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <a href="{% url 'home' %}" class="btn btn-secondary rounded-3 border-0 px-4 py-2">
+                            <i class="fas fa-arrow-left me-2"></i> Back to Dashboard
                         </a>
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap; background: #f8f9fa; padding: 10px; border: 2px solid #007bff;">
-                            <button type="button" class="btn btn-info" id="testMongoBtn" onclick="testMongoDB()" style="display: inline-block !important; visibility: visible !important;">
-                                <i class="fas fa-database"></i> Test MongoDB
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-info rounded-3 border-0 px-3 py-2" id="testMongoBtn" onclick="testMongoDB()">
+                                <i class="fas fa-database me-2"></i> Test MongoDB
                             </button>
-                            <button type="button" class="btn btn-warning" id="testSubmitBtn" onclick="testSubmit()" style="display: inline-block !important; visibility: visible !important;">
-                                <i class="fas fa-test-tube"></i> Test Submit (No Face)
+                            <button type="button" class="btn btn-warning rounded-3 border-0 px-3 py-2" id="testSubmitBtn" onclick="testSubmit()">
+                                <i class="fas fa-test-tube me-2"></i> Test Submit
                             </button>
-                            <button type="submit" class="btn btn-primary" id="submitBtn" disabled style="display: inline-block !important; visibility: visible !important;">
-                            <i class="fas fa-save"></i> Add Student
-                        </button>
+                            <button type="submit" class="btn btn-primary rounded-3 border-0 px-4 py-2" id="submitBtn" disabled>
+                                <i class="fas fa-save me-2"></i> Add Student
+                            </button>
                         </div>
                     </div>
                 </form>
@@ -112,14 +125,19 @@
     
     <!-- Face Detection Section -->
     <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <i class="fas fa-user-shield"></i> Face Registration
-                </h3>
-                <small class="text-muted">Capture your face using advanced face recognition technology</small>
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 rounded-4 rounded-bottom-0">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                        <i class="fas fa-user-shield text-success"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-0 text-navy">Face Registration</h5>
+                        <small class="text-muted">Capture your face using advanced face recognition technology</small>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
+            <div class="card-body px-4 pb-4">
                 <div class="face-detection-wrapper">
                     <div class="detection-header">
                         <h4><i class="fas fa-camera"></i> Face Recognition</h4>
@@ -293,8 +311,141 @@
 {% endblock %}
 
 {% block extra_css %}
+<!-- Load Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="{% static 'css/advanced-face-detection.css' %}">
 <style>
+/* Color Variables */
+:root {
+    --primary: #1E90FF;
+    --secondary: #2ECC71;
+    --neutral-light: #F5F6FA;
+    --neutral-dark: #2C3E50;
+    --accent: #E67E22;
+    --white: #FFFFFF;
+    --background: linear-gradient(135deg, #e6f0ff 0%, #d9e6ff 100%);
+}
+
+body {
+    background: var(--background);
+    color: #2C3E50;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+}
+
+/* Text Colors */
+.text-primary { color: var(--primary) !important; }
+.text-secondary { color: var(--secondary) !important; }
+.text-navy { color: var(--neutral-dark) !important; }
+.text-accent { color: var(--accent) !important; }
+
+/* Background Colors */
+.bg-primary { background-color: var(--primary) !important; }
+.bg-secondary { background-color: var(--secondary) !important; }
+.bg-navy { background-color: var(--neutral-dark) !important; }
+.bg-accent { background-color: var(--accent) !important; }
+.bg-light-custom { background-color: var(--neutral-light) !important; }
+
+/* Button Colors */
+.btn-primary {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+.btn-primary:hover {
+    background-color: #0D7AE6;
+    border-color: #0D7AE6;
+}
+
+.btn-success {
+    background-color: var(--secondary);
+    border-color: var(--secondary);
+}
+.btn-success:hover {
+    background-color: #25A25A;
+    border-color: #25A25A;
+}
+
+.btn-navy {
+    background-color: var(--neutral-dark);
+    border-color: var(--neutral-dark);
+    color: white;
+}
+.btn-navy:hover {
+    background-color: #1E2A36;
+    border-color: #1E2A36;
+    color: white;
+}
+
+.btn-warning {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+.btn-warning:hover {
+    background-color: #D35400;
+    border-color: #D35400;
+    color: white;
+}
+
+/* Title */
+.page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--neutral-dark);
+    position: relative;
+    padding-bottom: 10px;
+}
+.page-title:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background-color: var(--primary);
+    border-radius: 2px;
+}
+
+.date-box {
+    font-weight: 500;
+    color: var(--neutral-dark);
+}
+
+/* Cards */
+.card {
+    border: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: var(--white);
+}
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+}
+
+/* Form Controls */
+.form-control, .form-select {
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.2rem rgba(30, 144, 255, 0.25);
+}
+
+/* Custom background pattern */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 5% 10%, rgba(30, 144, 255, 0.05) 0%, transparent 20%),
+        radial-gradient(circle at 95% 10%, rgba(46, 204, 113, 0.05) 0%, transparent 20%),
+        radial-gradient(circle at 50% 90%, rgba(230, 126, 34, 0.05) 0%, transparent 20%);
+    z-index: -1;
+}
 .face-detection-container {
     text-align: center;
 }

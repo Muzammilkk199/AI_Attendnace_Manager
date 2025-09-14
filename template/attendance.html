@@ -3,32 +3,60 @@
 {% block title %}Live Attendance - Attendance Manager{% endblock %}
 
 {% block content %}
-<div class="row">
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <h2 class="fw-bold page-title">Live Attendance</h2>
+        <div class="date-box p-3 bg-white rounded-3 shadow-sm">
+            <i class="fas fa-camera me-2 text-primary"></i>
+            <span class="fw-medium">Face Recognition System</span>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
     <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <i class="fas fa-camera"></i> Live Attendance System
-                </h3>
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 rounded-4 rounded-bottom-0">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                        <i class="fas fa-camera text-primary"></i>
+                    </div>
+                    <h5 class="fw-bold mb-0 text-navy">Live Attendance System</h5>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="row">
+            <div class="card-body px-4 pb-4">
+                <div class="row g-4">
                     <!-- Face Detection Section -->
                     <div class="col-md-8">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title">
-                                    <i class="fas fa-user-shield"></i> Face Recognition Attendance
-                                </h3>
-                                <small class="text-muted">Capture your face using advanced face recognition technology</small>
+                        <div class="card border-0 shadow-sm rounded-4">
+                            <div class="card-header bg-white border-0 pt-4 px-4 rounded-4 rounded-bottom-0">
+                                <div class="d-flex align-items-center">
+                                    <div class="icon-wrapper bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-user-shield text-success"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold mb-0 text-navy">Face Recognition Attendance</h5>
+                                        <small class="text-muted">Capture your face using advanced face recognition technology</small>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="card-body">
+                            <div class="card-body px-4 pb-4">
                                 <div class="face-detection-wrapper">
                                     <div class="detection-header">
                                         <h4><i class="fas fa-camera"></i> Face Recognition</h4>
                                         <div class="detection-status" id="detectionStatus">
                                             <span class="status-indicator" id="statusIndicator"></span>
                                             <span class="status-text" id="statusText">Ready to start</span>
+                                        </div>
+                                        
+                                        <!-- Mode indicator -->
+                                        <div id="modeIndicator" style="display: none;">
+                                            <div class="auto-mode-indicator" id="autoModeIndicator">
+                                                <i class="fas fa-robot"></i> Auto Detection Active
+                                            </div>
+                                            <div class="manual-mode-indicator" id="manualModeIndicator" style="display: none;">
+                                                <i class="fas fa-hand-paper"></i> Manual Mode - Auto Detection Disabled
+                                            </div>
                                         </div>
                                     </div>
                                     
@@ -100,18 +128,40 @@
                                             <button type="button" id="captureFace" class="btn btn-success" disabled>
                                 <i class="fas fa-camera"></i> Mark Attendance
                             </button>
+                                            <button type="button" id="checkoutFace" class="btn btn-warning" disabled>
+                                                <i class="fas fa-sign-out-alt"></i> Mark Checkout
+                                            </button>
                                             <button type="button" id="retryCapture" class="btn btn-warning" disabled>
                                                 <i class="fas fa-redo"></i> Retry
                                             </button>
                                             <button type="button" id="stopDetection" class="btn btn-danger" disabled>
                                                 <i class="fas fa-stop"></i> Stop
                                             </button>
-                                            <button type="button" id="testAutoRecognition" class="btn btn-info">
-                                                <i class="fas fa-robot"></i> Test Auto Recognition
-                                            </button>
                                             <button type="button" id="initializeDailyAttendance" class="btn btn-secondary">
                                                 <i class="fas fa-calendar-day"></i> Initialize Daily Attendance
                                             </button>
+                                            <button type="button" id="testCheckout" class="btn btn-info">
+                                                <i class="fas fa-clock"></i> Test Checkout (Force)
+                                            </button>
+                                            <button type="button" id="toggleAutoDetection" class="btn btn-dark">
+                                                <i class="fas fa-robot"></i> Disable Auto Detection
+                                            </button>
+                                            <button type="button" id="debugButtons" class="btn btn-info" onclick="checkButtonStates()">
+                                                <i class="fas fa-bug"></i> Debug Buttons
+                                            </button>
+                                            <button type="button" id="enableCheckoutBtn" class="btn btn-success" onclick="enableCheckoutButton()">
+                                                <i class="fas fa-unlock"></i> Enable Checkout
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Time Status Display -->
+                                        <div class="time-status-display" id="timeStatusDisplay" style="margin-bottom: 15px; padding: 10px; border-radius: 6px; text-align: center; font-weight: bold;">
+                                            <div id="currentTimeStatus">
+                                                <i class="fas fa-clock"></i> <span id="timeStatusText">Loading time status...</span>
+                                            </div>
+                                            <div id="timeStatusDetails" style="font-size: 12px; margin-top: 5px; opacity: 0.8;">
+                                                <span id="currentTimeText"></span>
+                                            </div>
                                         </div>
                                         
                                         <div class="validation-messages" id="validationMessages">
@@ -202,11 +252,16 @@
                     
                     <!-- Attendance Form -->
                     <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5><i class="fas fa-user-check"></i> Mark Attendance</h5>
+                        <div class="card border-0 shadow-sm rounded-4">
+                            <div class="card-header bg-white border-0 pt-4 px-4 rounded-4 rounded-bottom-0">
+                                <div class="d-flex align-items-center">
+                                    <div class="icon-wrapper bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-user-check text-warning"></i>
+                                    </div>
+                                    <h5 class="fw-bold mb-0 text-navy">Mark Attendance</h5>
+                                </div>
                             </div>
-                            <div class="card-body">
+                            <div class="card-body px-4 pb-4">
                                 <form id="attendanceForm" method="post">
                                     {% csrf_token %}
                                     
@@ -216,40 +271,41 @@
                                     
                                     <!-- Student Information (Auto-filled by face recognition) -->
                                     <div class="mb-3">
-                                        <label for="studentId" class="form-label">Student ID</label>
-                                        <input type="text" class="form-control" id="studentId" name="student_id" readonly>
+                                        <label for="studentId" class="form-label text-navy fw-medium">Student ID</label>
+                                        <input type="text" class="form-control rounded-3 border-1" id="studentId" name="student_id" readonly>
                                         <div class="form-text">Auto-detected from face recognition</div>
                                     </div>
                                     
                                     <div class="mb-3">
-                                        <label for="studentName" class="form-label">Student Name</label>
-                                        <input type="text" class="form-control" id="studentName" name="student_name" readonly>
+                                        <label for="studentName" class="form-label text-navy fw-medium">Student Name</label>
+                                        <input type="text" class="form-control rounded-3 border-1" id="studentName" name="student_name" readonly>
                                         <div class="form-text">Auto-detected from face recognition</div>
                                     </div>
                                     
                                     <div class="mb-3">
-                                        <label for="attendanceType" class="form-label">Attendance Type</label>
-                                        <select class="form-select" id="attendanceType" name="attendance_type" required>
+                                        <label for="attendanceType" class="form-label text-navy fw-medium">Attendance Type</label>
+                                        <select class="form-select rounded-3 border-1" id="attendanceType" name="attendance_type" required>
                                             <option value="">Select Type</option>
                                             <option value="present" selected>Present</option>
                                             <option value="late">Late</option>
                                             <option value="absent">Absent</option>
+                                            <option value="checkout">Checkout</option>
                                         </select>
                                     </div>
                                     
                                     <div class="mb-3">
-                                        <label for="confidence" class="form-label">Recognition Confidence</label>
-                                        <input type="text" class="form-control" id="confidence" name="confidence" readonly>
+                                        <label for="confidence" class="form-label text-navy fw-medium">Recognition Confidence</label>
+                                        <input type="text" class="form-control rounded-3 border-1" id="confidence" name="confidence" readonly>
                                         <div class="form-text">Face recognition confidence score</div>
                                     </div>
                                     
                                     <div class="mb-3">
-                                        <label for="notes" class="form-label">Notes (Optional)</label>
-                                        <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Add any additional notes..."></textarea>
+                                        <label for="notes" class="form-label text-navy fw-medium">Notes (Optional)</label>
+                                        <textarea class="form-control rounded-3 border-1" id="notes" name="notes" rows="3" placeholder="Add any additional notes..."></textarea>
                                     </div>
                                     
-                                    <button type="submit" class="btn btn-primary w-100" id="submitAttendanceBtn" disabled>
-                                        <i class="fas fa-check"></i> Submit Attendance
+                                    <button type="submit" class="btn btn-primary w-100 rounded-3 border-0 py-2" id="submitAttendanceBtn" disabled>
+                                        <i class="fas fa-check me-2"></i> Submit Attendance
                                     </button>
                                 </form>
                                 
@@ -264,11 +320,16 @@
                         </div>
                         
                         <!-- Recent Attendance -->
-                        <div class="card mt-3">
-                            <div class="card-header">
-                                <h6>Recent Attendance</h6>
+                        <div class="card border-0 shadow-sm rounded-4 mt-4">
+                            <div class="card-header bg-white border-0 pt-4 px-4 rounded-4 rounded-bottom-0">
+                                <div class="d-flex align-items-center">
+                                    <div class="icon-wrapper bg-info bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-history text-info"></i>
+                                    </div>
+                                    <h6 class="fw-bold mb-0 text-navy">Recent Attendance</h6>
+                                </div>
                             </div>
-                            <div class="card-body">
+                            <div class="card-body px-4 pb-4">
                                 <div id="recentAttendance">
                                     <p class="text-muted">No recent attendance records</p>
                                 </div>
@@ -284,8 +345,141 @@
 
 {% block extra_css %}
 {% load static %}
+<!-- Load Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="{% static 'css/advanced-face-detection.css' %}">
 <style>
+/* Color Variables */
+:root {
+    --primary: #1E90FF;
+    --secondary: #2ECC71;
+    --neutral-light: #F5F6FA;
+    --neutral-dark: #2C3E50;
+    --accent: #E67E22;
+    --white: #FFFFFF;
+    --background: linear-gradient(135deg, #e6f0ff 0%, #d9e6ff 100%);
+}
+
+body {
+    background: var(--background);
+    color: #2C3E50;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+}
+
+/* Text Colors */
+.text-primary { color: var(--primary) !important; }
+.text-secondary { color: var(--secondary) !important; }
+.text-navy { color: var(--neutral-dark) !important; }
+.text-accent { color: var(--accent) !important; }
+
+/* Background Colors */
+.bg-primary { background-color: var(--primary) !important; }
+.bg-secondary { background-color: var(--secondary) !important; }
+.bg-navy { background-color: var(--neutral-dark) !important; }
+.bg-accent { background-color: var(--accent) !important; }
+.bg-light-custom { background-color: var(--neutral-light) !important; }
+
+/* Button Colors */
+.btn-primary {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+.btn-primary:hover {
+    background-color: #0D7AE6;
+    border-color: #0D7AE6;
+}
+
+.btn-success {
+    background-color: var(--secondary);
+    border-color: var(--secondary);
+}
+.btn-success:hover {
+    background-color: #25A25A;
+    border-color: #25A25A;
+}
+
+.btn-navy {
+    background-color: var(--neutral-dark);
+    border-color: var(--neutral-dark);
+    color: white;
+}
+.btn-navy:hover {
+    background-color: #1E2A36;
+    border-color: #1E2A36;
+    color: white;
+}
+
+.btn-warning {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+.btn-warning:hover {
+    background-color: #D35400;
+    border-color: #D35400;
+    color: white;
+}
+
+/* Title */
+.page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--neutral-dark);
+    position: relative;
+    padding-bottom: 10px;
+}
+.page-title:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background-color: var(--primary);
+    border-radius: 2px;
+}
+
+.date-box {
+    font-weight: 500;
+    color: var(--neutral-dark);
+}
+
+/* Cards */
+.card {
+    border: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: var(--white);
+}
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+}
+
+/* Form Controls */
+.form-control, .form-select {
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.2rem rgba(30, 144, 255, 0.25);
+}
+
+/* Custom background pattern */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 5% 10%, rgba(30, 144, 255, 0.05) 0%, transparent 20%),
+        radial-gradient(circle at 95% 10%, rgba(46, 204, 113, 0.05) 0%, transparent 20%),
+        radial-gradient(circle at 50% 90%, rgba(230, 126, 34, 0.05) 0%, transparent 20%);
+    z-index: -1;
+}
 /* Attendance-specific styles */
 .face-recognition-section {
     background: #f8f9fa;
@@ -415,10 +609,45 @@
     color: #721c24;
 }
 
+.attendance-item .attendance-type.checkout {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
 .attendance-item .timestamp {
     font-size: 0.75rem;
     color: #6c757d;
     margin-top: 4px;
+}
+
+/* Manual mode indicator */
+.manual-mode-indicator {
+    background: linear-gradient(45deg, #ff6b6b, #ffa500);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    margin: 10px 0;
+    animation: pulse 2s infinite;
+}
+
+.auto-mode-indicator {
+    background: linear-gradient(45deg, #4ecdc4, #44a08d);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    margin: 10px 0;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
 }
 
 /* Responsive adjustments */
@@ -448,6 +677,205 @@
 function clearErrorLogs() {
     if (window.pythonFaceDetection) {
         window.pythonFaceDetection.clearErrorLogs();
+    }
+}
+
+// Time status management
+function updateTimeStatus() {
+    const now = new Date();
+    const currentTime = now.toLocaleTimeString();
+    const timeStatusDisplay = document.getElementById('timeStatusDisplay');
+    const timeStatusText = document.getElementById('timeStatusText');
+    const currentTimeText = document.getElementById('currentTimeText');
+    
+    if (!timeStatusDisplay || !timeStatusText || !currentTimeText) return;
+    
+    // Update current time
+    currentTimeText.textContent = `Current Time: ${currentTime}`;
+    
+    // Determine time status based on current time
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    const timeInMinutes = hour * 60 + minute;
+    
+    // Time thresholds (8:00 AM = 480 minutes, 2:00 PM = 840 minutes)
+    const morningCutoff = 8 * 60; // 8:00 AM
+    const checkoutCutoff = 14 * 60; // 2:00 PM
+    
+    let status, statusClass, statusIcon;
+    
+    if (timeInMinutes <= morningCutoff) {
+        status = "CHECK-IN PERIOD (Present)";
+        statusClass = "success";
+        statusIcon = "fas fa-check-circle";
+    } else if (timeInMinutes <= checkoutCutoff) {
+        status = "LATE PERIOD (Late)";
+        statusClass = "warning";
+        statusIcon = "fas fa-exclamation-triangle";
+    } else {
+        status = "DAY FINISHED (No Scanning)";
+        statusClass = "danger";
+        statusIcon = "fas fa-ban";
+    }
+    
+    // Update display
+    timeStatusText.innerHTML = `<i class="${statusIcon}"></i> ${status}`;
+    timeStatusDisplay.className = `time-status-display alert alert-${statusClass}`;
+    timeStatusDisplay.style.marginBottom = '15px';
+    timeStatusDisplay.style.padding = '10px';
+    timeStatusDisplay.style.borderRadius = '6px';
+    timeStatusDisplay.style.textAlign = 'center';
+    timeStatusDisplay.style.fontWeight = 'bold';
+}
+
+// Update time status every second
+setInterval(updateTimeStatus, 1000);
+updateTimeStatus(); // Initial call
+
+// Show prominent day finished alert
+function showDayFinishedAlert(message) {
+    // Create a prominent alert modal
+    const alertHtml = `
+        <div class="modal fade" id="dayFinishedModal" tabindex="-1" role="dialog" aria-labelledby="dayFinishedModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content border-danger">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="dayFinishedModalLabel">
+                            <i class="fas fa-ban"></i> Day Finished
+                        </h5>
+                        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div class="alert alert-danger" role="alert">
+                            <h4 class="alert-heading">
+                                <i class="fas fa-clock"></i> Time Restriction Active
+                            </h4>
+                            <p class="mb-0">${message}</p>
+                            <hr>
+                            <p class="mb-0">
+                                <strong>Current Time:</strong> <span id="modalCurrentTime"></span><br>
+                                <strong>Restriction:</strong> No scanning allowed after 2:00 PM
+                            </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('dayFinishedModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', alertHtml);
+    
+    // Update current time in modal
+    const modalCurrentTime = document.getElementById('modalCurrentTime');
+    if (modalCurrentTime) {
+        modalCurrentTime.textContent = new Date().toLocaleTimeString();
+    }
+    
+    // Show modal
+    $('#dayFinishedModal').modal('show');
+    
+    // Auto-hide after 10 seconds
+    setTimeout(() => {
+        $('#dayFinishedModal').modal('hide');
+    }, 10000);
+}
+
+// Debug function to check button states
+function checkButtonStates() {
+    const checkoutBtn = document.getElementById('checkoutFace');
+    const testCheckoutBtn = document.getElementById('testCheckout');
+    const captureBtn = document.getElementById('captureFace');
+    
+    console.log('🔍 BUTTON STATES:');
+    console.log('Checkout button:', checkoutBtn ? `disabled=${checkoutBtn.disabled}` : 'NOT FOUND');
+    console.log('Test checkout button:', testCheckoutBtn ? `disabled=${testCheckoutBtn.disabled}` : 'NOT FOUND');
+    console.log('Capture button:', captureBtn ? `disabled=${captureBtn.disabled}` : 'NOT FOUND');
+    
+    if (window.pythonFaceDetection) {
+        console.log('Detection active:', window.pythonFaceDetection.isDetecting);
+        console.log('Manual override:', window.pythonFaceDetection.isAutoDetectionDisabled());
+    }
+}
+
+// Manual enable checkout button function
+function enableCheckoutButton() {
+    const checkoutBtn = document.getElementById('checkoutFace');
+    if (checkoutBtn) {
+        checkoutBtn.disabled = false;
+        console.log('🚪 MANUAL: Checkout button enabled');
+        if (window.pythonFaceDetection && window.pythonFaceDetection.addErrorLog) {
+            window.pythonFaceDetection.addErrorLog('Checkout button manually enabled', 'success');
+        }
+    } else {
+        console.log('❌ MANUAL: Checkout button not found');
+    }
+}
+
+// Manual override system - disable auto detection when manual actions are taken
+function disableAutoDetection() {
+    if (window.pythonFaceDetection) {
+        window.pythonFaceDetection.disableAutoDetection();
+        
+        // Update UI to show manual mode
+        const statusText = document.getElementById('statusText');
+        if (statusText) {
+            statusText.textContent = 'Manual mode - Auto detection disabled';
+        }
+        
+        // Show manual mode indicator
+        const modeIndicator = document.getElementById('modeIndicator');
+        const autoModeIndicator = document.getElementById('autoModeIndicator');
+        const manualModeIndicator = document.getElementById('manualModeIndicator');
+        
+        if (modeIndicator) {
+            modeIndicator.style.display = 'block';
+        }
+        if (autoModeIndicator) {
+            autoModeIndicator.style.display = 'none';
+        }
+        if (manualModeIndicator) {
+            manualModeIndicator.style.display = 'block';
+        }
+    }
+}
+
+// Re-enable auto detection
+function enableAutoDetection() {
+    if (window.pythonFaceDetection) {
+        window.pythonFaceDetection.enableAutoDetection();
+        
+        // Update UI to show auto mode
+        const statusText = document.getElementById('statusText');
+        if (statusText) {
+            statusText.textContent = 'Auto detection active';
+        }
+        
+        // Show auto mode indicator
+        const modeIndicator = document.getElementById('modeIndicator');
+        const autoModeIndicator = document.getElementById('autoModeIndicator');
+        const manualModeIndicator = document.getElementById('manualModeIndicator');
+        
+        if (modeIndicator) {
+            modeIndicator.style.display = 'block';
+        }
+        if (autoModeIndicator) {
+            autoModeIndicator.style.display = 'block';
+        }
+        if (manualModeIndicator) {
+            manualModeIndicator.style.display = 'none';
+        }
     }
 }
 
@@ -494,6 +922,13 @@ async function recognizeStudent(encoding) {
         
         const data = await response.json();
         console.log('📊 Recognition response data:', data);
+        console.log('🔍 DEBUG: data.day_finished =', data.day_finished);
+        console.log('🔍 DEBUG: data.success =', data.success);
+        console.log('🔍 DEBUG: data.student =', data.student);
+        console.log('🔍 DEBUG: data.message =', data.message);
+        console.log('🔍 DEBUG: Full response keys =', Object.keys(data));
+        console.log('🔍 DEBUG: Response type =', typeof data);
+        console.log('🔍 DEBUG: Response stringified =', JSON.stringify(data, null, 2));
         
         if (data.success && data.student) {
             // Update form fields
@@ -509,6 +944,28 @@ async function recognizeStudent(encoding) {
             // Enable submit button
             updateSubmitButton(true);
             
+        } else if (data.day_finished || (data.message && data.message.includes('day is finished')) || (data.message && data.message.includes('cannot scan your face after'))) {
+            // Handle day finished response - multiple ways to detect it
+            console.log('🚫 DAY FINISHED DETECTED:', data.message);
+            if (window.pythonFaceDetection) {
+                window.pythonFaceDetection.addErrorLog('🚫 ' + (data.message || 'The day is finished! You cannot scan your face after 2:00 PM.'), 'error');
+            }
+            
+            // Show prominent day finished alert
+            showDayFinishedAlert(data.message || 'The day is finished! You cannot scan your face after 2:00 PM.');
+            
+            console.log('🚫 DAY FINISHED: Cannot scan after 2:00 PM', data.message);
+            
+            // Clear form fields
+            document.getElementById('studentId').value = '';
+            document.getElementById('studentName').value = '';
+            document.getElementById('confidence').value = '';
+            document.getElementById('attendanceType').value = 'present';
+            document.getElementById('notes').value = '';
+            
+            // Disable submit button
+            updateSubmitButton(false);
+            
         } else {
             if (window.pythonFaceDetection) {
                 if (data.total_students === 0) {
@@ -523,6 +980,129 @@ async function recognizeStudent(encoding) {
         
         } catch (error) {
         console.error('❌ ATTENDANCE: Recognition error:', error);
+        console.error('❌ Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        });
+        
+        if (window.pythonFaceDetection) {
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                window.pythonFaceDetection.addErrorLog('Connection failed. Please check server.', 'error');
+            } else if (error.message.includes('timeout')) {
+                window.pythonFaceDetection.addErrorLog('Recognition timeout. Please try again.', 'error');
+            } else {
+                window.pythonFaceDetection.addErrorLog('Recognition failed: ' + error.message, 'error');
+            }
+        }
+        updateSubmitButton(false);
+    }
+}
+
+// Student recognition function for checkout
+async function recognizeStudentForCheckout(encoding) {
+    console.log('🚪 CHECKOUT: Recognizing student for checkout...');
+    console.log('📊 Encoding details:', {
+        type: typeof encoding,
+        isArray: Array.isArray(encoding),
+        length: encoding ? encoding.length : 'undefined',
+        firstFew: encoding ? encoding.slice(0, 5) : 'undefined'
+    });
+    
+    if (window.pythonFaceDetection) {
+        window.pythonFaceDetection.addErrorLog('Recognizing student for checkout...', 'info');
+    }
+    
+    try {
+        const requestData = {
+            face_encoding: encoding,
+            checkout_request: true  // Flag to indicate this is a checkout request
+        };
+        
+        console.log('📤 Sending checkout recognition request:', {
+            encodingLength: encoding.length,
+            encodingType: typeof encoding,
+            requestSize: JSON.stringify(requestData).length
+        });
+        
+        const response = await fetch('{% url "recognize_student" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(requestData),
+            timeout: 10000 // 10 second timeout
+        });
+        
+        console.log('📥 Checkout recognition response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('📊 Checkout recognition response data:', data);
+        console.log('🔍 DEBUG CHECKOUT: data.day_finished =', data.day_finished);
+        console.log('🔍 DEBUG CHECKOUT: data.success =', data.success);
+        console.log('🔍 DEBUG CHECKOUT: data.student =', data.student);
+        console.log('🔍 DEBUG CHECKOUT: data.message =', data.message);
+        console.log('🔍 DEBUG CHECKOUT: Full response keys =', Object.keys(data));
+        console.log('🔍 DEBUG CHECKOUT: Response type =', typeof data);
+        console.log('🔍 DEBUG CHECKOUT: Response stringified =', JSON.stringify(data, null, 2));
+        
+        if (data.success && data.student) {
+            // Update form fields for checkout
+            document.getElementById('studentId').value = data.student.student_id;
+            document.getElementById('studentName').value = data.student.name;
+            document.getElementById('confidence').value = `${(data.confidence * 100).toFixed(1)}%`;
+            document.getElementById('attendanceType').value = 'checkout';
+            document.getElementById('notes').value = 'Manual checkout via face recognition';
+            
+            if (window.pythonFaceDetection) {
+                window.pythonFaceDetection.addErrorLog(`Student recognized for checkout: ${data.student.name} (${data.confidence * 100}% confidence)`, 'success');
+            }
+            console.log('✅ CHECKOUT: Student recognized successfully', data.student);
+            
+            // Enable submit button
+            updateSubmitButton(true);
+            
+        } else if (data.day_finished || (data.message && data.message.includes('day is finished')) || (data.message && data.message.includes('cannot scan your face after'))) {
+            // Handle day finished response for checkout - multiple ways to detect it
+            console.log('🚫 DAY FINISHED CHECKOUT DETECTED:', data.message);
+            if (window.pythonFaceDetection) {
+                window.pythonFaceDetection.addErrorLog('🚫 ' + (data.message || 'The day is finished! You cannot scan your face after 2:00 PM.'), 'error');
+            }
+            
+            // Show prominent day finished alert
+            showDayFinishedAlert(data.message || 'The day is finished! You cannot scan your face after 2:00 PM.');
+            
+            console.log('🚫 DAY FINISHED: Cannot checkout after 2:00 PM', data.message);
+            
+            // Clear form fields
+            document.getElementById('studentId').value = '';
+            document.getElementById('studentName').value = '';
+            document.getElementById('confidence').value = '';
+            document.getElementById('attendanceType').value = 'present';
+            document.getElementById('notes').value = '';
+            
+            // Disable submit button
+            updateSubmitButton(false);
+            
+        } else {
+            if (window.pythonFaceDetection) {
+                if (data.total_students === 0) {
+                    window.pythonFaceDetection.addErrorLog('No students in database. Please add students first.', 'error');
+                } else {
+                    window.pythonFaceDetection.addErrorLog(`Student not found. Searched ${data.total_students} students.`, 'error');
+                }
+            }
+            console.log('❌ CHECKOUT: Student not recognized', data.message);
+            updateSubmitButton(false);
+        }
+        
+        } catch (error) {
+        console.error('❌ CHECKOUT: Recognition error:', error);
         console.error('❌ Error details:', {
             name: error.name,
             message: error.message,
@@ -558,13 +1138,16 @@ function updateSubmitButton(isRecognized) {
     }
 }
 
-// Override the captureFace method to include student recognition
+        // Override the captureFace method to include student recognition
 function setupAttendanceCapture() {
     if (window.pythonFaceDetection) {
         const originalCaptureFace = window.pythonFaceDetection.captureFace;
         
         window.pythonFaceDetection.captureFace = async function() {
             console.log('📸 ATTENDANCE: Capturing face for attendance...');
+            
+            // Disable auto detection when manual capture is triggered
+            disableAutoDetection();
             
             try {
                 // Call original capture function
@@ -606,6 +1189,54 @@ function setupAttendanceCapture() {
     }
 }
 
+// Setup checkout functionality
+function setupCheckoutCapture() {
+    if (window.pythonFaceDetection) {
+        const originalCaptureFace = window.pythonFaceDetection.captureFace;
+        
+        window.pythonFaceDetection.checkoutFace = async function() {
+            console.log('🚪 CHECKOUT: Capturing face for checkout...');
+            
+            try {
+                // Call original capture function
+                const result = await originalCaptureFace.call(this);
+                console.log('🚪 CHECKOUT: Original capture result:', result);
+            
+                // Check if we have face data
+                if (this.lastFaces && this.lastFaces.length > 0) {
+                    const face = this.lastFaces[0];
+                    
+                    console.log('✅ CHECKOUT: Face data found:', {
+                        hasEncoding: !!face.encoding,
+                        encodingLength: face.encoding ? face.encoding.length : 0,
+                        encodingType: typeof face.encoding
+                    });
+                    
+                    // Try to recognize the student for checkout
+                    if (face.encoding && Array.isArray(face.encoding) && face.encoding.length === 128) {
+                        console.log('✅ CHECKOUT: Valid face encoding found, starting recognition...');
+                        await recognizeStudentForCheckout(face.encoding);
+                    } else {
+                        console.error('❌ CHECKOUT: Invalid face encoding:', face.encoding);
+                        this.addErrorLog('Invalid face encoding. Please try again.', 'error');
+                    }
+                } else {
+                    console.error('❌ CHECKOUT: No face data available after capture');
+                    this.addErrorLog('No face data captured. Please try again.', 'error');
+                }
+                
+                return result;
+            } catch (error) {
+                console.error('❌ CHECKOUT: Capture error:', error);
+                this.addErrorLog('Capture failed: ' + error.message, 'error');
+                return false;
+            }
+        }.bind(window.pythonFaceDetection);
+        
+        console.log('✅ CHECKOUT: Checkout function setup for student recognition');
+    }
+}
+
 // Handle form submission
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎯 ATTENDANCE PAGE: Initializing face detection system...');
@@ -617,6 +1248,104 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Setup attendance-specific capture behavior
         setupAttendanceCapture();
+        
+        // Setup checkout-specific capture behavior
+        setupCheckoutCapture();
+        
+        // Add event listener for checkout button
+        const checkoutButton = document.getElementById('checkoutFace');
+        if (checkoutButton) {
+            checkoutButton.addEventListener('click', async function() {
+                console.log('🚪 CHECKOUT: Checkout button clicked');
+                // Disable auto detection when manual action is taken
+                disableAutoDetection();
+                if (window.pythonFaceDetection && window.pythonFaceDetection.checkoutFace) {
+                    await window.pythonFaceDetection.checkoutFace();
+                }
+            });
+        }
+        
+        // Add event listener for test checkout button
+        const testCheckoutButton = document.getElementById('testCheckout');
+        if (testCheckoutButton) {
+            testCheckoutButton.addEventListener('click', async function() {
+                console.log('🧪 TEST CHECKOUT: Force checkout test clicked');
+                // Disable auto detection when manual action is taken
+                disableAutoDetection();
+                // Force checkout by directly calling the recognition with checkout flag
+                if (window.pythonFaceDetection && window.pythonFaceDetection.lastFaces && window.pythonFaceDetection.lastFaces.length > 0) {
+                    const face = window.pythonFaceDetection.lastFaces[0];
+                    if (face.encoding && Array.isArray(face.encoding) && face.encoding.length === 128) {
+                        await recognizeStudentForCheckout(face.encoding);
+                    } else {
+                        alert('No face data available. Please capture a face first.');
+                    }
+                } else {
+                    alert('No face data available. Please capture a face first.');
+                }
+            });
+        }
+        
+        // Add event listener for toggle auto detection button
+        const toggleAutoDetectionButton = document.getElementById('toggleAutoDetection');
+        if (toggleAutoDetectionButton) {
+            toggleAutoDetectionButton.addEventListener('click', function() {
+                if (window.pythonFaceDetection && window.pythonFaceDetection.isAutoDetectionDisabled()) {
+                    // Re-enable auto detection
+                    enableAutoDetection();
+                    this.innerHTML = '<i class="fas fa-robot"></i> Disable Auto Detection';
+                    this.className = 'btn btn-dark';
+                } else {
+                    // Disable auto detection
+                    disableAutoDetection();
+                    this.innerHTML = '<i class="fas fa-hand-paper"></i> Enable Auto Detection';
+                    this.className = 'btn btn-warning';
+                }
+            });
+        }
+        
+        // Override the enableDetectionMode to also enable other buttons
+        if (window.pythonFaceDetection) {
+            const originalEnableDetectionMode = window.pythonFaceDetection.enableDetectionMode;
+            window.pythonFaceDetection.enableDetectionMode = function() {
+                console.log('🔄 ENABLE DETECTION MODE: Override called');
+                originalEnableDetectionMode.call(this);
+                
+                // Enable test checkout button when detection is active
+                const testCheckoutBtn = document.getElementById('testCheckout');
+                if (testCheckoutBtn) {
+                    testCheckoutBtn.disabled = false;
+                    console.log('🧪 Test checkout button enabled');
+                }
+                
+                // Enable toggle auto detection button when detection is active
+                const toggleAutoBtn = document.getElementById('toggleAutoDetection');
+                if (toggleAutoBtn) {
+                    toggleAutoBtn.disabled = false;
+                    console.log('🔄 Toggle auto detection button enabled');
+                }
+            };
+            
+            const originalDisableDetectionMode = window.pythonFaceDetection.disableDetectionMode;
+            window.pythonFaceDetection.disableDetectionMode = function() {
+                console.log('🔄 DISABLE DETECTION MODE: Override called');
+                originalDisableDetectionMode.call(this);
+                
+                // Disable test checkout button when detection is inactive
+                const testCheckoutBtn = document.getElementById('testCheckout');
+                if (testCheckoutBtn) {
+                    testCheckoutBtn.disabled = true;
+                    console.log('🧪 Test checkout button disabled');
+                }
+                
+                // Disable toggle auto detection button when detection is inactive
+                const toggleAutoBtn = document.getElementById('toggleAutoDetection');
+                if (toggleAutoBtn) {
+                    toggleAutoBtn.disabled = true;
+                    console.log('🔄 Toggle auto detection button disabled');
+                }
+            };
+        }
         
         // Handle form submission
         const attendanceForm = document.getElementById('attendanceForm');

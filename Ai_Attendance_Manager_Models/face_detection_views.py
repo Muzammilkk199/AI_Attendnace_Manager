@@ -216,6 +216,28 @@ def recognize_student(request):
                 'total_students': 0
             })
         else:
+            # FIRST: Check if day is finished (before face recognition)
+            from .models import Attendance
+            from datetime import datetime
+            
+            # Check if this is a checkout request (from checkout button)
+            is_checkout_request = data.get('checkout_request', False)
+            
+            # Check day status first
+            current_time = datetime.now().time()
+            day_status = Attendance.get_attendance_status_by_time(current_time)
+            
+            if day_status == 'day_finished' and not is_checkout_request:
+                logger.warning("🚫 Day finished: Scanning not allowed after 2:00 PM")
+                return JsonResponse({
+                    'success': False,
+                    'message': 'The day is finished! You cannot scan your face after 2:00 PM.',
+                    'day_finished': True,
+                    'time': current_time.strftime('%H:%M:%S'),
+                    'security': 'DAY FINISHED: No scanning allowed after 2:00 PM',
+                    'total_students': total_students
+                })
+            
             logger.info(" Starting face recognition comparison...")
             
             try:
@@ -230,15 +252,21 @@ def recognize_student(request):
             if student:
                 logger.info(f" Student recognized: {student.name} ({student.student_id})")
                 
-                # Import Attendance model for automatic attendance marking
-                from .models import Attendance
-                
-                # Mark automatic attendance
-                attendance_result = Attendance.mark_automatic_attendance(
-                    student=student,
-                    confidence=0.95,
-                    notes='Automatic attendance via face recognition'
-                )
+                if is_checkout_request:
+                    # Mark manual checkout
+                    attendance_result = Attendance.mark_automatic_attendance(
+                        student=student,
+                        confidence=0.95,
+                        notes='Manual checkout via face recognition',
+                        force_checkout=True
+                    )
+                else:
+                    # Mark automatic attendance
+                    attendance_result = Attendance.mark_automatic_attendance(
+                        student=student,
+                        confidence=0.95,
+                        notes='Automatic attendance via face recognition'
+                    )
                 
                 if attendance_result['success']:
                     logger.info(f"✅ Attendance marked: {attendance_result['status']} at {attendance_result['time']}")
@@ -267,30 +295,54 @@ def recognize_student(request):
                         'total_students': total_students
                     })
                 else:
-                    # Attendance already marked (duplicate prevention)
-                    logger.warning(f"⚠️ Duplicate attendance prevented: {attendance_result['message']}")
-                    return JsonResponse({
-                        'success': False,
-                        'student': {
-                            'id': student.id,
-                            'student_id': student.student_id,
-                            'name': student.name,
-                            'first_name': student.first_name,
-                            'last_name': student.last_name,
-                            'email': student.email,
-                            'phone': student.phone,
-                            'class_name': student.class_name,
-                            'section': student.section
-                        },
-                        'attendance': {
-                            'status': attendance_result['existing_status'],
-                            'time': attendance_result['existing_time'],
-                            'duplicate_prevention': True
-                        },
-                        'message': attendance_result['message'],
-                        'security': 'DUPLICATE PREVENTION: Attendance already marked today',
-                        'total_students': total_students
-                    })
+                    # Check if it's a day_finished case
+                    if attendance_result.get('day_finished', False):
+                        # Day is finished - prevent scanning
+                        logger.warning(f"🚫 Day finished: {attendance_result['message']}")
+                        return JsonResponse({
+                            'success': False,
+                            'student': {
+                                'id': student.id,
+                                'student_id': student.student_id,
+                                'name': student.name,
+                                'first_name': student.first_name,
+                                'last_name': student.last_name,
+                                'email': student.email,
+                                'phone': student.phone,
+                                'class_name': student.class_name,
+                                'section': student.section
+                            },
+                            'message': attendance_result['message'],
+                            'day_finished': True,
+                            'time': attendance_result.get('time', ''),
+                            'security': 'DAY FINISHED: No scanning allowed after 2:00 PM',
+                            'total_students': total_students
+                        })
+                    else:
+                        # Attendance already marked (duplicate prevention)
+                        logger.warning(f"⚠️ Duplicate attendance prevented: {attendance_result['message']}")
+                        return JsonResponse({
+                            'success': False,
+                            'student': {
+                                'id': student.id,
+                                'student_id': student.student_id,
+                                'name': student.name,
+                                'first_name': student.first_name,
+                                'last_name': student.last_name,
+                                'email': student.email,
+                                'phone': student.phone,
+                                'class_name': student.class_name,
+                                'section': student.section
+                            },
+                            'attendance': {
+                                'status': attendance_result.get('existing_status', 'unknown'),
+                                'time': attendance_result.get('existing_time', ''),
+                                'duplicate_prevention': True
+                            },
+                            'message': attendance_result['message'],
+                            'security': 'DUPLICATE PREVENTION: Attendance already marked today',
+                            'total_students': total_students
+                        })
             else:
                 logger.warning(f" Unregistered face detected - proxy prevention active")
                 return JsonResponse({
