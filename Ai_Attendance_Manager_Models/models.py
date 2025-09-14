@@ -203,11 +203,38 @@ class Attendance(models.Model):
     confidence = models.FloatField(default=0.0)
     notes = models.TextField(blank=True, null=True)
     
+    # Time tracking fields
+    check_in_time = models.TimeField(blank=True, null=True, help_text='Time when student checked in')
+    check_out_time = models.TimeField(blank=True, null=True, help_text='Time when student checked out')
+    total_time_spent = models.DurationField(blank=True, null=True, help_text='Total time spent in class (calculated)')
+    
     
     def __str__(self):
         return f"{self.student.name} - {self.date} ({self.status})"
     
+    def calculate_total_time_spent(self):
+        """Calculate total time spent in class based on check_in and check_out times"""
+        if self.check_in_time and self.check_out_time:
+            from datetime import datetime, timedelta
+            
+            # Create datetime objects for the same date
+            check_in_datetime = datetime.combine(self.date, self.check_in_time)
+            check_out_datetime = datetime.combine(self.date, self.check_out_time)
+            
+            # Handle case where check_out is next day (after midnight)
+            if check_out_datetime < check_in_datetime:
+                check_out_datetime += timedelta(days=1)
+            
+            # Calculate duration
+            duration = check_out_datetime - check_in_datetime
+            return duration
+        return None
+    
     def save(self, *args, **kwargs):
+        # Calculate total time spent before saving
+        if self.check_in_time and self.check_out_time:
+            self.total_time_spent = self.calculate_total_time_spent()
+        
         super().save(*args, **kwargs)
         self.save_to_mongodb()
     
@@ -223,6 +250,9 @@ class Attendance(models.Model):
                 'confidence': self.confidence,
                 'notes': self.notes,
                 'timestamp': self.timestamp.isoformat(),
+                'check_in_time': self.check_in_time.isoformat() if self.check_in_time else None,
+                'check_out_time': self.check_out_time.isoformat() if self.check_out_time else None,
+                'total_time_spent': str(self.total_time_spent) if self.total_time_spent else None,
                 'django_id': self.id
             }
             
@@ -422,6 +452,11 @@ class Attendance(models.Model):
                 existing_attendance.confidence = confidence
                 existing_attendance.notes = notes or f'Automatic attendance - {status.title()}'
                 existing_attendance.timestamp = datetime.now()
+                
+                # Set check-in time for first attendance of the day
+                if not existing_attendance.check_in_time:
+                    existing_attendance.check_in_time = current_time
+                
                 existing_attendance.save()
                 
                 return {
@@ -439,6 +474,11 @@ class Attendance(models.Model):
                 existing_attendance.confidence = confidence
                 existing_attendance.notes = notes or f'End of day checkout - {status.title()}'
                 existing_attendance.timestamp = datetime.now()
+                
+                # Set check-out time for checkout
+                if not existing_attendance.check_out_time:
+                    existing_attendance.check_out_time = current_time
+                
                 existing_attendance.save()
                 
                 return {
@@ -456,6 +496,11 @@ class Attendance(models.Model):
                 existing_attendance.confidence = confidence
                 existing_attendance.notes = notes or f'Manual checkout - {status.title()}'
                 existing_attendance.timestamp = datetime.now()
+                
+                # Set check-out time for manual checkout
+                if not existing_attendance.check_out_time:
+                    existing_attendance.check_out_time = current_time
+                
                 existing_attendance.save()
                 
                 return {
@@ -483,7 +528,9 @@ class Attendance(models.Model):
             date=today,
             status=status,
             confidence=confidence,
-            notes=notes or f'Automatic attendance - {status.title()}'
+            notes=notes or f'Automatic attendance - {status.title()}',
+            check_in_time=current_time if status in ['present', 'late'] else None,
+            check_out_time=current_time if status == 'checkout' else None
         )
         
         return {

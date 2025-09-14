@@ -551,6 +551,9 @@ def report(request):
                     "student_name": doc.get("student_name", ""),
                     "status": doc.get("status", ""),
                     "timestamp": doc.get("timestamp", ""),
+                    "check_in_time": doc.get("check_in_time", ""),
+                    "check_out_time": doc.get("check_out_time", ""),
+                    "total_time_spent": doc.get("total_time_spent", ""),
                     "notes": doc.get("notes", "-"),
                 })
 
@@ -636,6 +639,9 @@ def attendance_data(request):
                         "student_name": doc.get("student_name", ""),
                         "status": doc.get("status", ""),
                         "timestamp": doc.get("timestamp", ""),
+                        "check_in_time": doc.get("check_in_time", ""),
+                        "check_out_time": doc.get("check_out_time", ""),
+                        "total_time_spent": doc.get("total_time_spent", ""),
                         "notes": doc.get("notes", "-"),
                         # Also include django_id as fallback
                         "django_id": doc.get("django_id", "")
@@ -885,8 +891,8 @@ def export_attendance_excel(request):
     ws = wb.active
     ws.title = "Attendance"
 
-    # Headers - remove "Actions" column
-    headers = ["Date", "Student ID", "Name", "Status", "Time", "Notes"]
+    # Headers - include time tracking columns
+    headers = ["Date", "Student ID", "Name", "Status", "Check In", "Check Out", "Total Time", "Notes"]
     ws.append(headers)
 
     # Rows
@@ -896,7 +902,9 @@ def export_attendance_excel(request):
             rec.get("student_id", ""),
             rec.get("student_name", ""),
             rec.get("status", ""),
-            str(rec.get("timestamp", "")),
+            rec.get("check_in_time", ""),
+            rec.get("check_out_time", ""),
+            rec.get("total_time_spent", ""),
             rec.get("notes", ""),
         ])
 
@@ -954,8 +962,8 @@ def export_attendance_pdf(request):
     elements.append(Paragraph("Attendance Report", styles["Title"]))
     elements.append(Spacer(1, 12))
 
-    # Table data (headers first) - remove "Actions" column
-    data = [["Date", "Student ID", "Name", "Status", "Time", "Notes"]]
+    # Table data (headers first) - include time tracking columns
+    data = [["Date", "Student ID", "Name", "Status", "Check In", "Check Out", "Total Time", "Notes"]]
 
     for rec in records:
         data.append([
@@ -963,7 +971,9 @@ def export_attendance_pdf(request):
             rec.get("student_id", ""),
             rec.get("student_name", ""),
             rec.get("status", ""),
-            str(rec.get("timestamp", "")),
+            rec.get("check_in_time", ""),
+            rec.get("check_out_time", ""),
+            rec.get("total_time_spent", ""),
             rec.get("notes", ""),
         ])
 

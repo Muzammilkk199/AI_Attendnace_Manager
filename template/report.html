@@ -168,7 +168,9 @@
                         <th class="text-navy">Student ID</th>
                         <th class="text-navy">Student Name</th>
                         <th class="text-navy">Status</th>
-                        <th class="text-navy">Time</th>
+                        <th class="text-navy">Check In</th>
+                        <th class="text-navy">Check Out</th>
+                        <th class="text-navy">Total Time</th>
                         <th class="text-navy">Notes</th>
                         <th class="pe-3 text-navy">Actions</th>
                     </tr>
@@ -184,13 +186,29 @@
                             <span class="badge bg-success rounded-pill px-3 py-2">Present</span>
                         {% elif attendance.status == 'late' %}
                             <span class="badge bg-warning rounded-pill px-3 py-2">Late</span>
+                        {% elif attendance.status == 'checkout' %}
+                            <span class="badge bg-info rounded-pill px-3 py-2">Checked Out</span>
                         {% else %}
                             <span class="badge bg-danger rounded-pill px-3 py-2">Absent</span>
                         {% endif %}
                     </td>
-                    <td> 
-                        {% if attendance.timestamp %}
-                            {{ attendance.timestamp|slice:"11:16" }}
+                    <td>
+                        {% if attendance.check_in_time %}
+                            {{ attendance.check_in_time|time:"H:i" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.check_out_time %}
+                            {{ attendance.check_out_time|time:"H:i" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.total_time_spent %}
+                            {{ attendance.total_time_spent }}
                         {% else %}
                             -
                         {% endif %}
@@ -211,7 +229,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">
+                    <td colspan="9" class="text-center text-muted py-4">
                         <i class="fas fa-inbox fs-1 mb-2 d-block"></i>
                         No attendance records found
                     </td>
@@ -300,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function showLoadingState() {
         document.getElementById('attendanceTableBody').innerHTML = `
             <tr>
-                <td colspan="7" class="text-center py-4">
+                <td colspan="9" class="text-center py-4">
                     <div class="spinner-border text-primary" role="status"></div>
                     <p class="text-muted mt-2">Loading attendance data...</p>
                 </td>
@@ -310,7 +328,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function showErrorState() {
         document.getElementById('attendanceTableBody').innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-danger py-4">
+                <td colspan="9" class="text-center text-danger py-4">
                     <i class="fas fa-exclamation-circle fs-3 mb-2 d-block"></i>
                     Failed to load data. Please try again.
                 </td>
@@ -441,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!records || records.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">
+                    <td colspan="9" class="text-center text-muted py-4">
                         <i class="fas fa-inbox fs-1 mb-2 d-block"></i> No attendance records found
                     </td>
                 </tr>`;
@@ -469,13 +487,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const deleteUrl = `{% url 'delete_attendance' '0' %}`.replace('0', record.id);
             console.log("Generated delete URL:", deleteUrl); // Debug: check the URL
 
+            const checkInTime = record.check_in_time ? new Date(record.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-';
+            const checkOutTime = record.check_out_time ? new Date(record.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-';
+            const totalTime = record.total_time_spent || '-';
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td class="ps-3">${new Date(record.date).toLocaleDateString()}</td>
                 <td>${record.student_id}</td>
                 <td>${record.student_name}</td>
                 <td>${statusBadge}</td>
-                <td>${timeStr}</td>
+                <td>${checkInTime}</td>
+                <td>${checkOutTime}</td>
+                <td>${totalTime}</td>
                 <td>${record.notes && record.notes.trim() !== '' ? record.notes : '-'}</td>
                 <td class="pe-3">
                     <div class="d-flex gap-2">
@@ -498,6 +522,7 @@ document.addEventListener('DOMContentLoaded', function() {
         switch (status) {
             case "present": return '<span class="badge bg-success rounded-pill px-3 py-2">Present</span>';
             case "late": return '<span class="badge bg-warning rounded-pill px-3 py-2">Late</span>';
+            case "checkout": return '<span class="badge bg-info rounded-pill px-3 py-2">Checked Out</span>';
             case "absent": return '<span class="badge bg-danger rounded-pill px-3 py-2">Absent</span>';
             default: return '<span class="badge bg-secondary rounded-pill px-3 py-2">Unknown</span>';
         }
