@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 from django.utils import timezone
@@ -1220,8 +1220,8 @@ def check_duplicate_face(request):
                         print(f"Error processing student {student.get('student_id', 'unknown')}: {e}")
                         continue
             
-            # Check if similarity is above threshold (0.6 = 60% similarity)
-            similarity_threshold = 0.6
+            # Check if similarity is above threshold (0.925 = 92.5% similarity)
+            similarity_threshold = 0.95
             if best_similarity > similarity_threshold:
                 return JsonResponse({
                     'success': True,

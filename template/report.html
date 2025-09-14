@@ -336,10 +336,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateSummaryCards(summary) {
-        document.getElementById('totalPresent').textContent = summary.present ?? 0;
-        document.getElementById('totalLate').textContent = summary.late ?? 0;
-        document.getElementById('totalAbsent').textContent = summary.absent ?? 0;
-        document.getElementById('attendanceRate').textContent = (summary.rate ?? 0) + '%';
+        console.log('Updating summary cards with data:', summary); // Debug log
+        
+        if (summary) {
+            document.getElementById('totalPresent').textContent = summary.present ?? 0;
+            document.getElementById('totalLate').textContent = summary.late ?? 0;
+            document.getElementById('totalAbsent').textContent = summary.absent ?? 0;
+            document.getElementById('attendanceRate').textContent = (summary.rate ?? 0) + '%';
+        } else {
+            console.error('Summary data is null or undefined');
+        }
     }
 
     // Add event listeners for export buttons
@@ -487,8 +493,29 @@ document.addEventListener('DOMContentLoaded', function() {
             const deleteUrl = `{% url 'delete_attendance' '0' %}`.replace('0', record.id);
             console.log("Generated delete URL:", deleteUrl); // Debug: check the URL
 
-            const checkInTime = record.check_in_time ? new Date(record.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-';
-            const checkOutTime = record.check_out_time ? new Date(record.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-';
+            // Fix time formatting - handle both time strings and full datetime strings
+            let checkInTime = '-';
+            let checkOutTime = '-';
+            
+            if (record.check_in_time) {
+                if (record.check_in_time.includes('T') || record.check_in_time.includes(' ')) {
+                    // Full datetime string
+                    checkInTime = new Date(record.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    // Time string only (HH:MM:SS format)
+                    checkInTime = record.check_in_time.substring(0, 5); // Get HH:MM part
+                }
+            }
+            
+            if (record.check_out_time) {
+                if (record.check_out_time.includes('T') || record.check_out_time.includes(' ')) {
+                    // Full datetime string
+                    checkOutTime = new Date(record.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    // Time string only (HH:MM:SS format)
+                    checkOutTime = record.check_out_time.substring(0, 5); // Get HH:MM part
+                }
+            }
             const totalTime = record.total_time_spent || '-';
 
             const row = document.createElement('tr');
@@ -517,6 +544,7 @@ document.addEventListener('DOMContentLoaded', function() {
             tbody.appendChild(row);
         });
     }
+
 
     function getStatusBadge(status) {
         switch (status) {

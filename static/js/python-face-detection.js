@@ -1523,7 +1523,11 @@ class PythonFaceDetection {
     }
     
     addErrorLog(message, type) {
-        // Add timestamp to the log
+        // DISABLED: No longer display any toast/alert messages over the camera
+        // Only log to console for debugging purposes
+        console.log(`[${type.toUpperCase()}] ${message}`);
+        
+        // Add timestamp to the log (for potential future use)
         const timestamp = new Date().toLocaleTimeString();
         const logEntry = {
             message: message,
@@ -1531,7 +1535,7 @@ class PythonFaceDetection {
             timestamp: timestamp
         };
         
-        // Add to logs array
+        // Add to logs array (for potential future use)
         this.errorLogs.unshift(logEntry);
         
         // Keep only the latest logs
@@ -1539,13 +1543,14 @@ class PythonFaceDetection {
             this.errorLogs = this.errorLogs.slice(0, this.maxLogs);
         }
         
-        // Update the display
-        this.updateErrorLogDisplay();
+        // DISABLED: Do not update the display - no more toast alerts
+        // this.updateErrorLogDisplay();
     }
     
     clearErrorLogs() {
         this.errorLogs = [];
-        this.updateErrorLogDisplay();
+        // DISABLED: No longer update display since we're not showing any messages
+        // this.updateErrorLogDisplay();
     }
     
     // Manual override methods
@@ -1642,6 +1647,12 @@ class PythonFaceDetection {
     }
     
     updateErrorLogDisplay() {
+        // DISABLED: No longer display any validation messages over the camera
+        // This function is kept for compatibility but does nothing
+        return;
+        
+        // Original code commented out to prevent any toast/alert displays
+        /*
         if (!this.validationMessages) return;
         
         // Clear existing messages
@@ -1658,6 +1669,7 @@ class PythonFaceDetection {
         `;
         this.validationMessages.appendChild(messageDiv);
         });
+        */
     }
     
     lockScreen(message) {
@@ -1854,8 +1866,10 @@ class PythonFaceDetection {
     }
     
     showValidationMessage(message, type) {
-        // Use the new error logging system instead of individual toasts
-        this.addErrorLog(message, type);
+        // DISABLED: No longer show any validation messages over the camera
+        // Only log to console for debugging purposes
+        console.log(`[VALIDATION ${type.toUpperCase()}] ${message}`);
+        // this.addErrorLog(message, type);
     }
     
     getIconForType(type) {
