@@ -602,6 +602,19 @@ class PythonFaceDetection {
                 this.disableCapture();
                 break;
                 
+            case 'spoofing_detected':
+                console.log('🚨 SPOOFING DETECTED - Mobile phone or photo detected');
+                this.unlockScreen();
+                this.hideAllFaceBoxes();
+                this.hideMultipleFacesWarning();
+                this.stableFrames = 0;
+                this.faceQuality = 0;
+                this.updateQualityIndicator();
+                this.addErrorLog('SPOOFING DETECTED: Mobile phone or photo detected. Please use your real face.', 'error');
+                this.disableCapture();
+                this.showSpoofingWarning(message);
+                break;
+                
             case 'single_face':
                 console.log('✅ SINGLE FACE DETECTED - Quality:', faces[0]?.quality_score || 'unknown');
                 console.log('📊 Face data:', faces[0]);
@@ -610,6 +623,7 @@ class PythonFaceDetection {
                 console.log('🎯 About to show centered face box...');
                 this.showCenteredFaceBox(face);
             this.hideMultipleFacesWarning();
+            this.hideSpoofingWarning();
             this.faceQuality = face.quality_score || 0.8;
             this.updateQualityIndicator();
             
@@ -649,6 +663,7 @@ class PythonFaceDetection {
                 this.unlockScreen();
                 this.hideAllFaceBoxes();
                 this.hideMultipleFacesWarning();
+                this.hideSpoofingWarning();
                 this.stableFrames = 0;
                 this.faceQuality = 0;
                 this.updateQualityIndicator();
@@ -661,6 +676,7 @@ class PythonFaceDetection {
                 this.unlockScreen();
                 this.hideAllFaceBoxes();
                 this.hideMultipleFacesWarning();
+                this.hideSpoofingWarning();
                 this.stableFrames = 0;
                 this.faceQuality = 0;
                 this.updateQualityIndicator();
@@ -674,6 +690,7 @@ class PythonFaceDetection {
                 this.lockScreen(message);
             this.showMultipleFaceBoxes(faces);
             this.showMultipleFacesWarning();
+            this.hideSpoofingWarning();
             this.stableFrames = 0;
                 this.addErrorLog('Multiple faces detected. System locked until only one face is visible.', 'error');
                 this.disableCapture();
@@ -891,6 +908,84 @@ class PythonFaceDetection {
     hideMultipleFacesWarning() {
         if (this.multipleFacesWarning) {
             this.multipleFacesWarning.style.display = 'none';
+        }
+    }
+    
+    showSpoofingWarning(message) {
+        // Create or update spoofing warning element
+        let spoofingWarning = document.getElementById('spoofingWarning');
+        if (!spoofingWarning) {
+            spoofingWarning = document.createElement('div');
+            spoofingWarning.id = 'spoofingWarning';
+            spoofingWarning.className = 'spoofing-warning';
+            spoofingWarning.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, #dc3545, #c82333);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(220, 53, 69, 0.5);
+                z-index: 2000;
+                text-align: center;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                animation: spoofingPulse 1s ease-in-out infinite alternate;
+                max-width: 400px;
+                border: 3px solid #fff;
+            `;
+            
+            // Add CSS animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes spoofingPulse {
+                    from { 
+                        transform: translate(-50%, -50%) scale(1);
+                        box-shadow: 0 10px 30px rgba(220, 53, 69, 0.5);
+                    }
+                    to { 
+                        transform: translate(-50%, -50%) scale(1.05);
+                        box-shadow: 0 15px 40px rgba(220, 53, 69, 0.8);
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Add to camera container
+            const cameraContainer = document.querySelector('.camera-container');
+            if (cameraContainer) {
+                cameraContainer.appendChild(spoofingWarning);
+            }
+        }
+        
+        spoofingWarning.innerHTML = `
+            <div style="font-size: 24px; margin-bottom: 15px;">🚨</div>
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">SPOOFING DETECTED</div>
+            <div style="font-size: 14px; margin-bottom: 15px; opacity: 0.9;">${message}</div>
+            <div style="font-size: 12px; opacity: 0.8; line-height: 1.4;">
+                <strong>Instructions:</strong><br>
+                • Remove mobile phone or photo<br>
+                • Use your real face only<br>
+                • Ensure good lighting<br>
+                • Look directly at camera
+            </div>
+        `;
+        
+        spoofingWarning.style.display = 'block';
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            if (spoofingWarning && spoofingWarning.parentNode) {
+                spoofingWarning.style.display = 'none';
+            }
+        }, 5000);
+    }
+    
+    hideSpoofingWarning() {
+        const spoofingWarning = document.getElementById('spoofingWarning');
+        if (spoofingWarning) {
+            spoofingWarning.style.display = 'none';
         }
     }
     

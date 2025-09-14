@@ -11,6 +11,7 @@ import math
 from typing import List, Dict, Tuple, Optional
 import os
 import io
+from collections import deque
 
 # Import face recognition and image processing libraries
 import face_recognition
@@ -39,6 +40,17 @@ class PythonFaceDetector:
         self.similarity_threshold = 0.85  # Much stricter similarity (was 0.8)
         self.confidence_threshold = 0.9  # High confidence required
         self.min_face_area = 2500  # Minimum face area in pixels
+        
+        # Anti-spoofing detection parameters
+        self.movement_history = deque(maxlen=10)
+        self.last_face_center = None
+        self.frame_count = 0
+        self.spoofing_alert_active = False
+        
+        # Spoofing detection thresholds (very lenient for real faces)
+        self.MOVEMENT_THRESHOLD = 1.0  # Very low movement threshold
+        self.SPOOFING_FRAMES_THRESHOLD = 30
+        self.SIMILARITY_THRESHOLD = 0.9  # Very high similarity threshold (more lenient)
     
     def initialize_face_recognition(self):
         """Initialize face_recognition library"""
@@ -484,6 +496,194 @@ class PythonFaceDetector:
             'library': 'face_recognition'
         }
     
+    def analyze_skin_pixels(self, face_roi):
+        """
+        Analyze skin pixels to detect if it's a real face or a photo/screen.
+        """
+        # Convert to HSV for better skin detection
+        hsv = cv2.cvtColor(face_roi, cv2.COLOR_BGR2HSV)
+        
+        # Define expanded skin color range in HSV for different skin tones
+        # Lower range (lighter skin tones)
+        lower_skin1 = np.array([0, 20, 70], dtype=np.uint8)
+        upper_skin1 = np.array([20, 255, 255], dtype=np.uint8)
+        
+        # Upper range (darker skin tones)
+        lower_skin2 = np.array([0, 20, 20], dtype=np.uint8)
+        upper_skin2 = np.array([20, 255, 200], dtype=np.uint8)
+        
+        # Additional range for very dark skin tones
+        lower_skin3 = np.array([0, 10, 10], dtype=np.uint8)
+        upper_skin3 = np.array([30, 255, 150], dtype=np.uint8)
+        
+        # Create combined skin mask
+        skin_mask1 = cv2.inRange(hsv, lower_skin1, upper_skin1)
+        skin_mask2 = cv2.inRange(hsv, lower_skin2, upper_skin2)
+        skin_mask3 = cv2.inRange(hsv, lower_skin3, upper_skin3)
+        
+        # Combine all skin masks
+        skin_mask = cv2.bitwise_or(skin_mask1, cv2.bitwise_or(skin_mask2, skin_mask3))
+        
+        # Calculate skin pixel percentage
+        total_pixels = face_roi.shape[0] * face_roi.shape[1]
+        skin_pixels = np.sum(skin_mask > 0)
+        skin_percentage = (skin_pixels / total_pixels) * 100
+        
+        # Analyze skin texture using Laplacian variance
+        gray_face = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
+        laplacian_var = cv2.Laplacian(gray_face, cv2.CV_64F).var()
+        
+        return skin_percentage, laplacian_var
+    
+    def detect_mobile_screen(self, face_roi):
+        """
+        Detect if the face region contains a mobile screen (LCD/OLED patterns).
+        """
+        # Convert to grayscale
+        gray = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
+        
+        # Detect high-frequency patterns typical of screens
+        # Apply Sobel edge detection
+        sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+        sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+        sobel_magnitude = np.sqrt(sobel_x**2 + sobel_y**2)
+        
+        # Calculate edge density
+        edge_threshold = 50
+        edge_pixels = np.sum(sobel_magnitude > edge_threshold)
+        total_pixels = gray.shape[0] * gray.shape[1]
+        edge_density = (edge_pixels / total_pixels) * 100
+        
+        # Detect pixel patterns typical of screens
+        # Check for regular grid patterns
+        fft = np.fft.fft2(gray)
+        fft_shift = np.fft.fftshift(fft)
+        magnitude_spectrum = np.log(np.abs(fft_shift) + 1)
+        
+        # Look for high-frequency components (screen pixels)
+        high_freq_energy = np.sum(magnitude_spectrum[gray.shape[0]//3:2*gray.shape[0]//3, 
+                                                gray.shape[1]//3:2*gray.shape[1]//3])
+        
+        return edge_density, high_freq_energy
+    
+    def detect_reflection_patterns(self, face_roi):
+        """
+        Detect reflection patterns that indicate a screen or photo.
+        """
+        # Convert to grayscale
+        gray = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
+        
+        # Detect bright spots (potential reflections)
+        bright_threshold = 200
+        bright_pixels = np.sum(gray > bright_threshold)
+        total_pixels = gray.shape[0] * gray.shape[1]
+        bright_percentage = (bright_pixels / total_pixels) * 100
+        
+        # Check for uniform brightness (typical of screens)
+        brightness_std = np.std(gray)
+        
+        return bright_percentage, brightness_std
+    
+    def calculate_face_movement(self, current_center, previous_center):
+        """
+        Calculate the amount of face movement between frames.
+        """
+        if previous_center is None:
+            return 0
+        
+        return np.sqrt((current_center[0] - previous_center[0])**2 + (current_center[1] - previous_center[1])**2)
+    
+    def detect_face_variation(self, current_encoding, previous_encoding):
+        """
+        Detect if the face has changed significantly (indicating movement/liveness).
+        """
+        if previous_encoding is None:
+            return True  # First detection, assume movement
+        
+        # Calculate cosine similarity
+        from scipy.spatial.distance import cosine
+        similarity = 1 - cosine(current_encoding, previous_encoding)
+        
+        # If similarity is too high, it might be a static image
+        return similarity < self.SIMILARITY_THRESHOLD
+    
+    def is_spoofing_attack(self, face_center, face_encoding, face_roi, frame_count):
+        """
+        Advanced spoofing detection using multiple techniques.
+        """
+        if face_center is None:
+            return True, "No face detected"
+        
+        # Calculate face movement
+        movement = self.calculate_face_movement(face_center, self.last_face_center)
+        self.movement_history.append(movement)
+        
+        # Check for face variation (liveness)
+        face_variation = self.detect_face_variation(face_encoding, getattr(self, 'last_encoding', None))
+        
+        # Advanced spoofing detection
+        spoofing_score = 0
+        spoofing_reasons = []
+        
+        # 1. Analyze skin pixels
+        skin_percentage, laplacian_var = self.analyze_skin_pixels(face_roi)
+        
+        # Debug: Print skin percentage for troubleshooting
+        if frame_count % 30 == 0:  # Print every 30 frames
+            logger.info(f"Skin percentage: {skin_percentage:.1f}%, Texture variance: {laplacian_var:.1f}")
+        
+        if skin_percentage < 0.5:  # Only flag if almost no skin at all
+            spoofing_score += 1
+            spoofing_reasons.append("Extremely low skin pixel count")
+        
+        if laplacian_var < 2:  # Only flag if extremely low texture variance
+            spoofing_score += 1
+            spoofing_reasons.append("Extremely low texture variance")
+        
+        # 2. Detect mobile screen patterns (very strict for mobile detection)
+        edge_density, high_freq_energy = self.detect_mobile_screen(face_roi)
+        if edge_density > 25:  # Higher threshold for edge density (only flag obvious screens)
+            spoofing_score += 4  # Higher penalty for screen detection
+            spoofing_reasons.append("High edge density (screen detected)")
+        
+        if high_freq_energy > 1500:  # Higher threshold for frequency energy (only flag obvious screens)
+            spoofing_score += 4  # Higher penalty for screen patterns
+            spoofing_reasons.append("Screen pixel patterns detected")
+        
+        # 3. Detect reflection patterns (very lenient for real faces)
+        bright_percentage, brightness_std = self.detect_reflection_patterns(face_roi)
+        if bright_percentage > 50:  # Higher threshold for bright pixels (only flag obvious screens)
+            spoofing_score += 2  # Moderate penalty
+            spoofing_reasons.append("Excessive reflections")
+        
+        if brightness_std < 10:  # Lower threshold for brightness uniformity (only flag very uniform screens)
+            spoofing_score += 2  # Moderate penalty
+            spoofing_reasons.append("Uniform brightness (screen)")
+        
+        # 4. Movement and variation checks (very lenient)
+        if len(self.movement_history) >= 10:
+            avg_movement = np.mean(list(self.movement_history))
+            if avg_movement < self.MOVEMENT_THRESHOLD:
+                spoofing_score += 1  # Very low penalty for no movement
+                spoofing_reasons.append("No movement detected")
+            
+            if not face_variation:
+                spoofing_score += 1  # Very low penalty for no variation
+                spoofing_reasons.append("No face variation")
+        
+        # Update tracking variables
+        self.last_face_center = face_center
+        self.last_encoding = face_encoding
+        
+        # Determine if it's a spoofing attack (very high threshold to avoid false positives)
+        if spoofing_score >= 8:  # Very high threshold for spoofing detection
+            self.spoofing_alert_active = True
+            reason_text = ", ".join(spoofing_reasons[:3])  # Show top 3 reasons
+            return True, f"SPOOFING DETECTED: {reason_text}"
+        else:
+            self.spoofing_alert_active = False
+            return False, "Live person detected"
+    
     def generate_face_encoding(self, image, face_data: Dict) -> List[float]:
         """
         Generate face encoding from face detection coordinates
@@ -523,10 +723,10 @@ class PythonFaceDetector:
     
     def process_image(self, base64_image: str) -> Dict:
         """
-        STRICTER and FASTER image processing with enhanced validation
+        STRICTER and FASTER image processing with enhanced validation and anti-spoofing
         """
         try:
-            logger.info("🔍 Starting STRICT image processing...")
+            logger.info("🔍 Starting STRICT image processing with anti-spoofing...")
             
             # Convert base64 to image
             image = self.base64_to_image(base64_image)
@@ -545,11 +745,35 @@ class PythonFaceDetector:
             faces = self.detect_faces_strict(image)
             logger.info(f"🔍 STRICT detection found {len(faces)} valid faces")
             
-            # Generate encodings for each face
+            # Generate encodings for each face and perform spoofing detection
             for face in faces:
                 face['encoding'] = self.generate_face_encoding(image, face)
+                
+                # Perform anti-spoofing detection for each face
+                if face['encoding'] and len(face['encoding']) == 128:
+                    # Calculate face center
+                    face_center = (face['x'] + face['width']//2, face['y'] + face['height']//2)
+                    
+                    # Extract face region for spoofing analysis
+                    x, y, w, h = face['x'], face['y'], face['width'], face['height']
+                    face_roi = image[y:y+h, x:x+w]
+                    
+                    # Perform spoofing detection
+                    is_spoofing, spoofing_message = self.is_spoofing_attack(
+                        face_center, face['encoding'], face_roi, self.frame_count
+                    )
+                    
+                    # Add spoofing information to face data
+                    face['is_spoofing'] = is_spoofing
+                    face['spoofing_message'] = spoofing_message
+                    face['spoofing_score'] = getattr(self, 'spoofing_score', 0)
+                    
+                    logger.info(f"🛡️ Anti-spoofing result for face: {spoofing_message}")
             
-            # Determine status with MUCH stricter validation
+            # Increment frame count for spoofing detection
+            self.frame_count += 1
+            
+            # Determine status with MUCH stricter validation and spoofing checks
             face_count = len(faces)
             if face_count == 0:
                 status = 'no_faces'
@@ -557,7 +781,13 @@ class PythonFaceDetector:
             elif face_count == 1:
                 # Additional validation for single face
                 face = faces[0]
-                if face.get('quality_score', 0) < 0.4:
+                
+                # Check for spoofing first
+                if face.get('is_spoofing', False):
+                    status = 'spoofing_detected'
+                    message = face.get('spoofing_message', 'SPOOFING DETECTED: Mobile phone or photo detected')
+                    logger.warning(f"🚨 SPOOFING DETECTED: {message}")
+                elif face.get('quality_score', 0) < 0.4:
                     status = 'poor_quality'
                     message = 'Face quality too low - please improve lighting and center your face'
                 else:
@@ -581,7 +811,8 @@ class PythonFaceDetector:
                 'message': message,
                 'faces': faces,
                 'face_count': face_count,
-                'image_processed': self.image_to_base64(image)
+                'image_processed': self.image_to_base64(image),
+                'spoofing_detection_enabled': True
             }
             
         except Exception as e:
