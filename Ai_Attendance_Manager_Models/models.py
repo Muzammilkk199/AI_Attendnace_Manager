@@ -452,7 +452,8 @@ class Attendance(models.Model):
                         return {
                             'success': True,
                             'message': f'Checkout successful for {student.name}! Day finished - automatic checkout completed.',
-                            'status': existing_attendance.status,  # Keep original status
+                            'status': 'checked_out',  # Show checked out status
+                            'original_status': existing_attendance.status,  # Keep original status for reference
                             'time': current_time.strftime('%H:%M:%S'),
                             'attendance_id': existing_attendance.id,
                             'confidence': confidence,
@@ -506,7 +507,8 @@ class Attendance(models.Model):
                         return {
                             'success': True,
                             'message': f'Manual check-out successful for {student.name}',
-                            'status': existing_attendance.status,  # Keep original status
+                            'status': 'checked_out',  # Show checked out status
+                            'original_status': existing_attendance.status,  # Keep original status for reference
                             'time': current_time.strftime('%H:%M:%S'),
                             'attendance_id': existing_attendance.id,
                             'confidence': confidence,
@@ -630,7 +632,8 @@ class Attendance(models.Model):
                     return {
                         'success': True,
                         'message': f'Check-out successful for {student.name}',
-                        'status': existing_attendance.status,  # Keep original status
+                        'status': 'checked_out',  # Show checked out status
+                        'original_status': existing_attendance.status,  # Keep original status for reference
                         'time': current_time.strftime('%H:%M:%S'),
                         'attendance_id': existing_attendance.id,
                         'confidence': confidence,

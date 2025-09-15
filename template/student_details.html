@@ -109,10 +109,6 @@
                         {% endif %}
                     </td>
                     <td class="pe-3">
-                            <button class="btn btn-sm btn-outline-warning rounded-3" 
-                                    onclick="editAttendance('{{ student.student_id }}')">
-                                <i class="fas fa-edit"></i>
-                            </button>
                             <button 
                                 class="btn btn-sm btn-outline-danger rounded-3 delete-btn" 
                                 data-url="{% url 'delete_student' student.student_id %}"
@@ -256,10 +252,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     <td>${phone}</td>
                     <td>${statusBadge}</td>
                     <td class="pe-3">
-                        <button class="btn btn-sm btn-outline-warning rounded-3" 
-                                onclick="editAttendance('${student.student_id}')">
-                            <i class="fas fa-edit"></i>
-                        </button>
                         <button class="btn btn-sm btn-outline-danger rounded-3 delete-btn" 
                                 data-url="/api/students/${student.student_id}/delete/"
                                 data-status="${status}">

@@ -216,10 +216,10 @@
                     <td>{{ attendance.notes|default:"-" }}</td>
                     <td class="pe-3">
                         <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-outline-warning rounded-3 edit-btn" 
+                            <!-- <button class="btn btn-sm btn-outline-warning rounded-3 edit-btn" 
                                     data-url="{% url 'edit_attendance' attendance.id %}">
                                 <i class="fas fa-edit"></i>
-                            </button>
+                            </button> -->
                             <button class="btn btn-sm btn-outline-danger rounded-3 delete-btn"
                                     data-url="{% url 'delete_attendance' attendance.id %}">
                                 <i class="fas fa-trash"></i>
@@ -284,11 +284,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Handle edit buttons
-        if (e.target.closest('.edit-btn')) {
-            const button = e.target.closest('.edit-btn');
-            const url = button.dataset.url;
-            editAttendance(url);
-        }
+        // if (e.target.closest('.edit-btn')) {
+        //     const button = e.target.closest('.edit-btn');
+        //     const url = button.dataset.url;
+        //     editAttendance(url);
+        // }
     });
 
     function loadAttendanceData() {
@@ -450,11 +450,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 deleteAttendance(url, row);
             }
             
-            if (e.target.closest('.edit-btn')) {
-                const button = e.target.closest('.edit-btn');
-                const url = button.dataset.url;
-                editAttendance(url);
-            }
+            // if (e.target.closest('.edit-btn')) {
+            //     const button = e.target.closest('.edit-btn');
+            //     const url = button.dataset.url;
+            //     editAttendance(url);
+            // }
         });
     }
 
@@ -529,11 +529,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${totalTime}</td>
                 <td>${record.notes && record.notes.trim() !== '' ? record.notes : '-'}</td>
                 <td class="pe-3">
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-sm btn-outline-warning rounded-3 edit-btn" 
-                                data-url="/attendance/edit/${record.id}/">
-                            <i class="fas fa-edit"></i>
-                        </button>
+                    <div class="d-flex gap-2">eh
                         <button class="btn btn-sm btn-outline-danger rounded-3 delete-btn"
                                 data-url="${deleteUrl}">
                             <i class="fas fa-trash"></i>

@@ -140,18 +140,18 @@
                                             <button type="button" id="initializeDailyAttendance" class="btn btn-secondary">
                                                 <i class="fas fa-calendar-day"></i> Initialize Daily Attendance
                                             </button>
-                                            <button type="button" id="testCheckout" class="btn btn-info">
+                                            <!-- <button type="button" id="testCheckout" class="btn btn-info">
                                                 <i class="fas fa-clock"></i> Test Checkout (Force)
-                                            </button>
-                                            <button type="button" id="toggleAutoDetection" class="btn btn-dark">
+                                            </button> -->
+                                            <!-- <button type="button" id="toggleAutoDetection" class="btn btn-dark">
                                                 <i class="fas fa-robot"></i> Disable Auto Detection
-                                            </button>
-                                            <button type="button" id="debugButtons" class="btn btn-info" onclick="checkButtonStates()">
+                                            </button> -->
+                                            <!-- <button type="button" id="debugButtons" class="btn btn-info" onclick="checkButtonStates()">
                                                 <i class="fas fa-bug"></i> Debug Buttons
-                                            </button>
-                                            <button type="button" id="enableCheckoutBtn" class="btn btn-success" onclick="enableCheckoutButton()">
+                                            </button> -->
+                                            <!-- <button type="button" id="enableCheckoutBtn" class="btn btn-success" onclick="enableCheckoutButton()">
                                                 <i class="fas fa-unlock"></i> Enable Checkout
-                                            </button>
+                                            </button> -->
                                         </div>
                                         
                                         <!-- Time Status Display -->
@@ -790,7 +790,7 @@ function showDayFinishedAlert(message) {
 }
 
 // Show auto checkout success message
-function showAutoCheckoutSuccess(message, checkInTime, checkOutTime) {
+function showAutoCheckoutSuccess(message, checkInTime, checkOutTime, status = 'checked_out') {
     // Create a success alert modal
     const alertHtml = `
         <div class="modal fade" id="autoCheckoutModal" tabindex="-1" role="dialog" aria-labelledby="autoCheckoutModalLabel" aria-hidden="true">
@@ -812,19 +812,23 @@ function showAutoCheckoutSuccess(message, checkInTime, checkOutTime) {
                             <p class="mb-0">${message}</p>
                             <hr>
                             <div class="row">
-                                <div class="col-6">
+                                <div class="col-4">
                                     <strong>Check-in Time:</strong><br>
                                     <span class="badge badge-primary">${checkInTime || 'N/A'}</span>
                                 </div>
-                                <div class="col-6">
+                                <div class="col-4">
                                     <strong>Check-out Time:</strong><br>
                                     <span class="badge badge-success">${checkOutTime || 'N/A'}</span>
+                                </div>
+                                <div class="col-4">
+                                    <strong>Status:</strong><br>
+                                    <span class="badge badge-info">${status.toUpperCase()}</span>
                                 </div>
                             </div>
                             <hr>
                             <p class="mb-0">
                                 <strong>Current Time:</strong> <span id="autoCheckoutCurrentTime"></span><br>
-                                <strong>Status:</strong> Day finished - automatic checkout completed
+                                <strong>Action:</strong> Day finished - automatic checkout completed
                             </p>
                         </div>
                     </div>
@@ -1028,14 +1032,14 @@ async function recognizeStudent(encoding) {
                 document.getElementById('studentId').value = data.student.student_id;
                 document.getElementById('studentName').value = data.student.name;
                 document.getElementById('confidence').value = `${(data.confidence * 100).toFixed(1)}%`;
-                document.getElementById('attendanceType').value = 'checkout';
+                document.getElementById('attendanceType').value = data.attendance.status || 'checked_out';
                 document.getElementById('notes').value = data.message;
                 
                 // Enable submit button
                 updateSubmitButton(true);
                 
                 // Show success message for auto checkout
-                showAutoCheckoutSuccess(data.message, data.attendance.check_in_time, data.attendance.check_out_time);
+                showAutoCheckoutSuccess(data.message, data.attendance.check_in_time, data.attendance.check_out_time, data.attendance.status);
             } else {
                 // This is a genuine day finished error (for absent students or other cases)
                 if (window.pythonFaceDetection) {
@@ -1175,14 +1179,14 @@ async function recognizeStudentForCheckout(encoding) {
                 document.getElementById('studentId').value = data.student.student_id;
                 document.getElementById('studentName').value = data.student.name;
                 document.getElementById('confidence').value = `${(data.confidence * 100).toFixed(1)}%`;
-                document.getElementById('attendanceType').value = 'checkout';
+                document.getElementById('attendanceType').value = data.attendance.status || 'checked_out';
                 document.getElementById('notes').value = data.message;
                 
                 // Enable submit button
                 updateSubmitButton(true);
                 
                 // Show success message for auto checkout
-                showAutoCheckoutSuccess(data.message, data.attendance.check_in_time, data.attendance.check_out_time);
+                showAutoCheckoutSuccess(data.message, data.attendance.check_in_time, data.attendance.check_out_time, data.attendance.status);
             } else {
                 // This is a genuine day finished error (for absent students or other cases)
                 if (window.pythonFaceDetection) {
