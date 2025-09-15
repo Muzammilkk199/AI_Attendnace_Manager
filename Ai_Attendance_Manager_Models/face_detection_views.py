@@ -216,27 +216,8 @@ def recognize_student(request):
                 'total_students': 0
             })
         else:
-            # FIRST: Check if day is finished (before face recognition)
-            from .models import Attendance
-            from datetime import datetime
-            
             # Check if this is a checkout request (from checkout button)
             is_checkout_request = data.get('checkout_request', False)
-            
-            # Check day status first
-            current_time = datetime.now().time()
-            day_status = Attendance.get_attendance_status_by_time(current_time)
-            
-            if day_status == 'day_finished' and not is_checkout_request:
-                logger.warning("🚫 Day finished: Scanning not allowed after 2:00 PM")
-                return JsonResponse({
-                    'success': False,
-                    'message': 'The day is finished! You cannot scan your face after 2:00 PM.',
-                    'day_finished': True,
-                    'time': current_time.strftime('%H:%M:%S'),
-                    'security': 'DAY FINISHED: No scanning allowed after 2:00 PM',
-                    'total_students': total_students
-                })
             
             logger.info(" Starting face recognition comparison...")
             
@@ -252,25 +233,67 @@ def recognize_student(request):
             if student:
                 logger.info(f" Student recognized: {student.name} ({student.student_id})")
                 
+                # Check if this is a new student (no attendance today) trying to check in after 2 PM
+                from .models import Attendance
+                from datetime import date
+                
+                if not is_checkout_request:
+                    # Check if student has any attendance for today
+                    today = date.today()
+                    existing_attendance = Attendance.objects.filter(
+                        student=student,
+                        date=today
+                    ).first()
+                    
+                    # If no existing attendance and it's after 2 PM, block new check-ins
+                    if not existing_attendance:
+                        from datetime import datetime
+                        current_time = datetime.now().time()
+                        day_status = Attendance.get_attendance_status_by_time(current_time)
+                        
+                        if day_status == 'day_finished':
+                            logger.warning(f"🚫 Day finished: {student.name} cannot check in after 2:00 PM")
+                            return JsonResponse({
+                                'success': False,
+                                'student': {
+                                    'id': student.id,
+                                    'student_id': student.student_id,
+                                    'name': student.name,
+                                    'first_name': student.first_name,
+                                    'last_name': student.last_name,
+                                    'email': student.email,
+                                    'phone': student.phone,
+                                    'class_name': student.class_name,
+                                    'section': student.section
+                                },
+                                'message': f'Day finished for {student.name}! You cannot check in after 2:00 PM.',
+                                'day_finished': True,
+                                'time': current_time.strftime('%H:%M:%S'),
+                                'security': 'DAY FINISHED: No new check-ins allowed after 2:00 PM',
+                                'total_students': total_students
+                            })
+                
                 if is_checkout_request:
-                    # Mark manual checkout
+                    # Mark check-out
                     attendance_result = Attendance.mark_automatic_attendance(
                         student=student,
                         confidence=0.95,
-                        notes='Manual checkout via face recognition',
+                        notes='Check-out via face recognition',
                         force_checkout=True
                     )
                 else:
-                    # Mark automatic attendance
+                    # Mark check-in (automatic attendance)
                     attendance_result = Attendance.mark_automatic_attendance(
                         student=student,
                         confidence=0.95,
-                        notes='Automatic attendance via face recognition'
+                        notes='Check-in via face recognition'
                     )
                 
                 if attendance_result['success']:
-                    logger.info(f"✅ Attendance marked: {attendance_result['status']} at {attendance_result['time']}")
-                    return JsonResponse({
+                    action = attendance_result.get('action', 'check_in')
+                    logger.info(f"✅ {action.title()} successful: {attendance_result['status']} at {attendance_result['time']}")
+                    
+                    response_data = {
                         'success': True,
                         'student': {
                             'id': student.id,
@@ -287,13 +310,22 @@ def recognize_student(request):
                             'status': attendance_result['status'],
                             'time': attendance_result['time'],
                             'attendance_id': attendance_result['attendance_id'],
-                            'confidence': attendance_result['confidence']
+                            'confidence': attendance_result['confidence'],
+                            'action': action
                         },
                         'confidence': 0.95,  
-                        'message': f'Student recognized and attendance marked as {attendance_result["status"].title()}',
+                        'message': attendance_result['message'],
                         'security': 'ULTRA-STRICT validation passed',
                         'total_students': total_students
-                    })
+                    }
+                    
+                    # Add check-in/check-out times if available
+                    if 'check_in_time' in attendance_result:
+                        response_data['attendance']['check_in_time'] = attendance_result['check_in_time']
+                    if 'check_out_time' in attendance_result:
+                        response_data['attendance']['check_out_time'] = attendance_result['check_out_time']
+                    
+                    return JsonResponse(response_data)
                 else:
                     # Check if it's a day_finished case
                     if attendance_result.get('day_finished', False):
@@ -340,7 +372,7 @@ def recognize_student(request):
                                 'duplicate_prevention': True
                             },
                             'message': attendance_result['message'],
-                            'security': 'DUPLICATE PREVENTION: Attendance already marked today',
+                            'security': 'DUPLICATE PREVENTION: Student already checked in/out today',
                             'total_students': total_students
                         })
             else:
@@ -474,7 +506,9 @@ def manual_attendance_mark(request):
                 'attendance': {
                     'status': status,
                     'time': existing_attendance.timestamp.strftime('%H:%M:%S'),
-                    'attendance_id': existing_attendance.id
+                    'attendance_id': existing_attendance.id,
+                    'is_checked_in': existing_attendance.is_checked_in,
+                    'is_checked_out': existing_attendance.is_checked_out
                 }
             })
         else:
@@ -484,7 +518,9 @@ def manual_attendance_mark(request):
                 date=today,
                 status=status,
                 confidence=1.0,  # Manual marking has 100% confidence
-                notes=notes or f'Manual attendance - {status.title()}'
+                notes=notes or f'Manual attendance - {status.title()}',
+                is_checked_in=False,
+                is_checked_out=False
             )
             
             return JsonResponse({
@@ -493,7 +529,9 @@ def manual_attendance_mark(request):
                 'attendance': {
                     'status': status,
                     'time': attendance.timestamp.strftime('%H:%M:%S'),
-                    'attendance_id': attendance.id
+                    'attendance_id': attendance.id,
+                    'is_checked_in': attendance.is_checked_in,
+                    'is_checked_out': attendance.is_checked_out
                 }
             })
         

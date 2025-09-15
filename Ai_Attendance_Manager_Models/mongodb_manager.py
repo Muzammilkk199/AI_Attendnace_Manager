@@ -229,6 +229,46 @@ class StudentMongoDBManager(MongoDBManager):
     def update_student(self, student_id, data):
         return self.collection.update_one({"student_id": student_id}, {"$set": data})
     
+    def search_students(self, query: str):
+        """
+        Search students by name, student_id, email, class, or section
+        """
+        if not self.connected:
+            print(f"MongoDB not connected - skipping search for {self.collection_name}")
+            return []
+        
+        try:
+            # Create a case-insensitive regex pattern for the search
+            import re
+            pattern = re.compile(query, re.IGNORECASE)
+            
+            # Search across multiple fields
+            search_filter = {
+                '$or': [
+                    {'name': pattern},
+                    {'student_id': pattern},
+                    {'email': pattern},
+                    {'class_name': pattern},
+                    {'section': pattern},
+                    {'first_name': pattern},
+                    {'last_name': pattern}
+                ]
+            }
+            
+            docs = list(self.collection.find(search_filter))
+            for doc in docs:
+                if '_id' in doc:
+                    doc['id'] = str(doc['_id'])
+                    doc.pop('_id', None)
+                else:
+                    doc['id'] = doc.get('student_id', None)
+            
+            return docs
+            
+        except Exception as e:
+            print(f"Error searching students: {e}")
+            return []
+
     def is_face_registered(self, embedding: List[float], threshold: float = 0.9298) -> bool:
         """
         Check if a face is registered in the database

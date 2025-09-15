@@ -37,6 +37,7 @@ urlpatterns = [
     path("export/pdf/", controller.export_attendance_pdf, name="export_attendance_pdf"),
     path("api/students/<str:student_id>/edit/", controller.edit_student, name="edit_student"),
     path("api/students/<str:student_id>/delete/", controller.delete_student, name="delete_student"),
+    path('api/students/search/', controller.search_students, name="search_students"),
     path('api/test-mongodb/', controller.test_mongodb, name='test_mongodb'),
     path('api/test-student/', controller.test_student_creation, name='test_student_creation'),
     path('api/check-duplicate-face/', controller.check_duplicate_face, name='check_duplicate_face'),

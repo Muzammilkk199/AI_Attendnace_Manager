@@ -789,6 +789,77 @@ function showDayFinishedAlert(message) {
     }, 10000);
 }
 
+// Show auto checkout success message
+function showAutoCheckoutSuccess(message, checkInTime, checkOutTime) {
+    // Create a success alert modal
+    const alertHtml = `
+        <div class="modal fade" id="autoCheckoutModal" tabindex="-1" role="dialog" aria-labelledby="autoCheckoutModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content border-success">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title" id="autoCheckoutModalLabel">
+                            <i class="fas fa-check-circle"></i> Auto Checkout Success
+                        </h5>
+                        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div class="alert alert-success" role="alert">
+                            <h4 class="alert-heading">
+                                <i class="fas fa-clock"></i> Day Finished - Auto Checkout
+                            </h4>
+                            <p class="mb-0">${message}</p>
+                            <hr>
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>Check-in Time:</strong><br>
+                                    <span class="badge badge-primary">${checkInTime || 'N/A'}</span>
+                                </div>
+                                <div class="col-6">
+                                    <strong>Check-out Time:</strong><br>
+                                    <span class="badge badge-success">${checkOutTime || 'N/A'}</span>
+                                </div>
+                            </div>
+                            <hr>
+                            <p class="mb-0">
+                                <strong>Current Time:</strong> <span id="autoCheckoutCurrentTime"></span><br>
+                                <strong>Status:</strong> Day finished - automatic checkout completed
+                            </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-success" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('autoCheckoutModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', alertHtml);
+    
+    // Update current time in modal
+    const modalCurrentTime = document.getElementById('autoCheckoutCurrentTime');
+    if (modalCurrentTime) {
+        modalCurrentTime.textContent = new Date().toLocaleTimeString();
+    }
+    
+    // Show modal
+    $('#autoCheckoutModal').modal('show');
+    
+    // Auto-hide after 8 seconds
+    setTimeout(() => {
+        $('#autoCheckoutModal').modal('hide');
+    }, 8000);
+}
+
 // Debug function to check button states
 function checkButtonStates() {
     const checkoutBtn = document.getElementById('checkoutFace');
@@ -944,24 +1015,48 @@ async function recognizeStudent(encoding) {
         } else if (data.day_finished || (data.message && data.message.includes('day is finished')) || (data.message && data.message.includes('cannot scan your face after'))) {
             // Handle day finished response - multiple ways to detect it
             console.log('🚫 DAY FINISHED DETECTED:', data.message);
-            if (window.pythonFaceDetection) {
-                window.pythonFaceDetection.addErrorLog('🚫 ' + (data.message || 'The day is finished! You cannot scan your face after 2:00 PM.'), 'error');
+            
+            // Check if this is a successful checkout for present/late students after 2 PM
+            if (data.success && data.action === 'check_out' && data.message && (data.message.includes('checkout successful') || data.message.includes('automatic check-out'))) {
+                // This is a successful checkout for present/late students after 2 PM
+                console.log('✅ AUTOMATIC CHECKOUT SUCCESS:', data.message);
+                if (window.pythonFaceDetection) {
+                    window.pythonFaceDetection.addErrorLog('✅ ' + data.message, 'success');
+                }
+                
+                // Update form fields for checkout
+                document.getElementById('studentId').value = data.student.student_id;
+                document.getElementById('studentName').value = data.student.name;
+                document.getElementById('confidence').value = `${(data.confidence * 100).toFixed(1)}%`;
+                document.getElementById('attendanceType').value = 'checkout';
+                document.getElementById('notes').value = data.message;
+                
+                // Enable submit button
+                updateSubmitButton(true);
+                
+                // Show success message for auto checkout
+                showAutoCheckoutSuccess(data.message, data.attendance.check_in_time, data.attendance.check_out_time);
+            } else {
+                // This is a genuine day finished error (for absent students or other cases)
+                if (window.pythonFaceDetection) {
+                    window.pythonFaceDetection.addErrorLog('🚫 ' + (data.message || 'The day is finished! You cannot scan your face after 2:00 PM.'), 'error');
+                }
+                
+                // Show prominent day finished alert
+                showDayFinishedAlert(data.message || 'The day is finished! You cannot scan your face after 2:00 PM.');
+                
+                console.log('🚫 DAY FINISHED: Cannot scan after 2:00 PM', data.message);
+                
+                // Clear form fields
+                document.getElementById('studentId').value = '';
+                document.getElementById('studentName').value = '';
+                document.getElementById('confidence').value = '';
+                document.getElementById('attendanceType').value = 'present';
+                document.getElementById('notes').value = '';
+                
+                // Disable submit button
+                updateSubmitButton(false);
             }
-            
-            // Show prominent day finished alert
-            showDayFinishedAlert(data.message || 'The day is finished! You cannot scan your face after 2:00 PM.');
-            
-            console.log('🚫 DAY FINISHED: Cannot scan after 2:00 PM', data.message);
-            
-            // Clear form fields
-            document.getElementById('studentId').value = '';
-            document.getElementById('studentName').value = '';
-            document.getElementById('confidence').value = '';
-            document.getElementById('attendanceType').value = 'present';
-            document.getElementById('notes').value = '';
-            
-            // Disable submit button
-            updateSubmitButton(false);
             
         } else {
             if (window.pythonFaceDetection) {
@@ -1067,24 +1162,48 @@ async function recognizeStudentForCheckout(encoding) {
         } else if (data.day_finished || (data.message && data.message.includes('day is finished')) || (data.message && data.message.includes('cannot scan your face after'))) {
             // Handle day finished response for checkout - multiple ways to detect it
             console.log('🚫 DAY FINISHED CHECKOUT DETECTED:', data.message);
-            if (window.pythonFaceDetection) {
-                window.pythonFaceDetection.addErrorLog('🚫 ' + (data.message || 'The day is finished! You cannot scan your face after 2:00 PM.'), 'error');
+            
+            // Check if this is a successful checkout for present/late students after 2 PM
+            if (data.success && data.action === 'check_out' && data.message && (data.message.includes('checkout successful') || data.message.includes('automatic check-out'))) {
+                // This is a successful checkout for present/late students after 2 PM
+                console.log('✅ AUTOMATIC CHECKOUT SUCCESS (CHECKOUT):', data.message);
+                if (window.pythonFaceDetection) {
+                    window.pythonFaceDetection.addErrorLog('✅ ' + data.message, 'success');
+                }
+                
+                // Update form fields for checkout
+                document.getElementById('studentId').value = data.student.student_id;
+                document.getElementById('studentName').value = data.student.name;
+                document.getElementById('confidence').value = `${(data.confidence * 100).toFixed(1)}%`;
+                document.getElementById('attendanceType').value = 'checkout';
+                document.getElementById('notes').value = data.message;
+                
+                // Enable submit button
+                updateSubmitButton(true);
+                
+                // Show success message for auto checkout
+                showAutoCheckoutSuccess(data.message, data.attendance.check_in_time, data.attendance.check_out_time);
+            } else {
+                // This is a genuine day finished error (for absent students or other cases)
+                if (window.pythonFaceDetection) {
+                    window.pythonFaceDetection.addErrorLog('🚫 ' + (data.message || 'The day is finished! You cannot scan your face after 2:00 PM.'), 'error');
+                }
+                
+                // Show prominent day finished alert
+                showDayFinishedAlert(data.message || 'The day is finished! You cannot scan your face after 2:00 PM.');
+                
+                console.log('🚫 DAY FINISHED: Cannot checkout after 2:00 PM', data.message);
+                
+                // Clear form fields
+                document.getElementById('studentId').value = '';
+                document.getElementById('studentName').value = '';
+                document.getElementById('confidence').value = '';
+                document.getElementById('attendanceType').value = 'present';
+                document.getElementById('notes').value = '';
+                
+                // Disable submit button
+                updateSubmitButton(false);
             }
-            
-            // Show prominent day finished alert
-            showDayFinishedAlert(data.message || 'The day is finished! You cannot scan your face after 2:00 PM.');
-            
-            console.log('🚫 DAY FINISHED: Cannot checkout after 2:00 PM', data.message);
-            
-            // Clear form fields
-            document.getElementById('studentId').value = '';
-            document.getElementById('studentName').value = '';
-            document.getElementById('confidence').value = '';
-            document.getElementById('attendanceType').value = 'present';
-            document.getElementById('notes').value = '';
-            
-            // Disable submit button
-            updateSubmitButton(false);
             
         } else {
             if (window.pythonFaceDetection) {

@@ -69,8 +69,13 @@
 <div class="card shadow-sm rounded-3 border-0">
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0 fw-bold">Students List</h5>
-        <div>
-            <input type="text" id="searchBox" class="form-control form-control-sm" placeholder="Search students...">
+        <div class="position-relative">
+            <input type="text" id="searchBox" class="form-control form-control-sm" placeholder="Search students by name, ID, email, class, or section...">
+            <div id="searchSpinner" class="position-absolute top-50 end-0 translate-middle-y me-3" style="display: none;">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Searching...</span>
+                </div>
+            </div>
         </div>
     </div>
     <div class="card-body table-responsive">
@@ -87,7 +92,7 @@
                     <th>Actions</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="studentsTableBody">
                 {% for student in students %}
                 <tr>
                     <td>{{ student.student_id }}</td>
@@ -151,59 +156,190 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    const deleteButtons = document.querySelectorAll(".delete-btn");
-
-    deleteButtons.forEach(button => {
-        button.addEventListener("click", function () {
-            const url = this.dataset.url;   // ✅ Django-generated delete URL
-            const status = this.dataset.status; // "active" or "inactive"
-            const row = this.closest("tr");
-
+    // Search functionality
+    const searchBox = document.getElementById('searchBox');
+    const searchSpinner = document.getElementById('searchSpinner');
+    const studentsTableBody = document.getElementById('studentsTableBody');
+    const totalStudentsEl = document.getElementById('totalStudents');
+    const activeStudentsEl = document.getElementById('activeStudents');
+    const inactiveStudentsEl = document.getElementById('inactiveStudents');
+    
+    let searchTimeout;
+    
+    // Debounced search function
+    searchBox.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim();
+        
+        if (query.length === 0) {
+            // If search is empty, reload the page to show all students
+            window.location.reload();
+            return;
+        }
+        
+        // Show spinner
+        searchSpinner.style.display = 'block';
+        
+        // Debounce the search request
+        searchTimeout = setTimeout(() => {
+            performSearch(query);
+        }, 300);
+    });
+    
+    function performSearch(query) {
+        fetch(`/api/students/search/?q=${encodeURIComponent(query)}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            searchSpinner.style.display = 'none';
+            
+            if (data.success) {
+                updateTable(data.students);
+                updateStats(data.total_students, data.active_students, data.inactive_students);
+            } else {
+                console.error('Search error:', data.message);
+                // Show error message
+                Swal.fire({
+                    title: 'Search Error',
+                    text: data.message || 'An error occurred while searching',
+                    icon: 'error',
+                    timer: 3000
+                });
+            }
+        })
+        .catch(error => {
+            searchSpinner.style.display = 'none';
+            console.error('Search request failed:', error);
             Swal.fire({
-                title: "Are you sure?",
-                text: "This student will be permanently deleted!",
-                icon: "warning",
-                showCancelButton: true,
-                confirmButtonColor: "#d33",
-                cancelButtonColor: "#3085d6",
-                confirmButtonText: "Yes, delete it!"
-            }).then((result) => {
-                if (!result.isConfirmed) return;
+                title: 'Network Error',
+                text: 'Failed to search students. Please try again.',
+                icon: 'error',
+                timer: 3000
+            });
+        });
+    }
+    
+    function updateTable(students) {
+        if (!students || students.length === 0) {
+            studentsTableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="fas fa-search me-2"></i>No students found matching your search
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        let tableHTML = '';
+        students.forEach(student => {
+            const statusBadge = student.is_active 
+                ? '<span class="badge bg-success">Active</span>'
+                : '<span class="badge bg-danger">Inactive</span>';
+            
+            const email = student.email || '-';
+            const phone = student.phone || '-';
+            const status = student.is_active ? 'active' : 'inactive';
+            
+            tableHTML += `
+                <tr>
+                    <td>${student.student_id}</td>
+                    <td>${student.name}</td>
+                    <td>${student.class_name || '-'}</td>
+                    <td>${student.section || '-'}</td>
+                    <td>${email}</td>
+                    <td>${phone}</td>
+                    <td>${statusBadge}</td>
+                    <td class="pe-3">
+                        <button class="btn btn-sm btn-outline-warning rounded-3" 
+                                onclick="editAttendance('${student.student_id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger rounded-3 delete-btn" 
+                                data-url="/api/students/${student.student_id}/delete/"
+                                data-status="${status}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        studentsTableBody.innerHTML = tableHTML;
+        
+        // Re-attach delete event listeners to new buttons
+        attachDeleteListeners();
+    }
+    
+    function updateStats(total, active, inactive) {
+        if (totalStudentsEl) totalStudentsEl.textContent = total;
+        if (activeStudentsEl) activeStudentsEl.textContent = active;
+        if (inactiveStudentsEl) inactiveStudentsEl.textContent = inactive;
+    }
+    
+    function attachDeleteListeners() {
+        const deleteButtons = document.querySelectorAll(".delete-btn");
+        
+        deleteButtons.forEach(button => {
+            button.addEventListener("click", function () {
+                const url = this.dataset.url;
+                const status = this.dataset.status;
+                const row = this.closest("tr");
 
-                fetch(url, {
-                    method: "POST",
-                    headers: {
-                        "X-CSRFToken": getCookie("csrftoken"),
-                        "X-Requested-With": "XMLHttpRequest",
-                    },
-                    credentials: "same-origin"
-                })
-                .then(async response => {
-                    const data = await response.json().catch(() => null);
+                Swal.fire({
+                    title: "Are you sure?",
+                    text: "This student will be permanently deleted!",
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonColor: "#d33",
+                    cancelButtonColor: "#3085d6",
+                    confirmButtonText: "Yes, delete it!"
+                }).then((result) => {
+                    if (!result.isConfirmed) return;
 
-                    if (!response.ok) {
-                        Swal.fire("Error!", data?.message || "Failed to delete student", "error");
-                        return;
-                    }
+                    fetch(url, {
+                        method: "POST",
+                        headers: {
+                            "X-CSRFToken": getCookie("csrftoken"),
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                        credentials: "same-origin"
+                    })
+                    .then(async response => {
+                        const data = await response.json().catch(() => null);
 
-                    if (data?.success) {
-                        if (row) row.remove();
-                        decrementCounter("#totalStudents");
-                        if (status === "active") decrementCounter("#activeStudents");
-                        else decrementCounter("#inactiveStudents");
+                        if (!response.ok) {
+                            Swal.fire("Error!", data?.message || "Failed to delete student", "error");
+                            return;
+                        }
 
-                        Swal.fire("Deleted!", data.message || "Student deleted", "success");
-                    } else {
-                        Swal.fire("Error!", data?.message || "Unknown error", "error");
-                    }
-                })
-                .catch(err => {
-                    console.error("Delete error:", err);
-                    Swal.fire("Error!", "Network error occurred.", "error");
+                        if (data?.success) {
+                            if (row) row.remove();
+                            decrementCounter("#totalStudents");
+                            if (status === "active") decrementCounter("#activeStudents");
+                            else decrementCounter("#inactiveStudents");
+
+                            Swal.fire("Deleted!", data.message || "Student deleted", "success");
+                        } else {
+                            Swal.fire("Error!", data?.message || "Unknown error", "error");
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Delete error:", err);
+                        Swal.fire("Error!", "Network error occurred.", "error");
+                    });
                 });
             });
         });
-    });
+    }
+    
+    // Initial setup for delete buttons
+    attachDeleteListeners();
 
     function decrementCounter(selector) {
         const el = document.querySelector(selector);

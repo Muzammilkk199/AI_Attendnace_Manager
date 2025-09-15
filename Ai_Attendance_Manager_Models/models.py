@@ -191,9 +191,6 @@ class Attendance(models.Model):
         ('present', 'Present'),
         ('late', 'Late'),
         ('absent', 'Absent'),
-        ('checkout', 'Checkout'),
-        ('day_finished', 'Day Finished'),
-        ('day_locked', 'Day Locked'),
     ]
     
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
@@ -207,6 +204,10 @@ class Attendance(models.Model):
     check_in_time = models.TimeField(blank=True, null=True, help_text='Time when student checked in')
     check_out_time = models.TimeField(blank=True, null=True, help_text='Time when student checked out')
     total_time_spent = models.DurationField(blank=True, null=True, help_text='Total time spent in class (calculated)')
+    
+    # Check-in and check-out status fields
+    is_checked_in = models.BooleanField(default=False, help_text='Whether student has checked in today')
+    is_checked_out = models.BooleanField(default=False, help_text='Whether student has checked out today')
     
     
     def __str__(self):
@@ -253,6 +254,8 @@ class Attendance(models.Model):
                 'check_in_time': self.check_in_time.isoformat() if self.check_in_time else None,
                 'check_out_time': self.check_out_time.isoformat() if self.check_out_time else None,
                 'total_time_spent': str(self.total_time_spent) if self.total_time_spent else None,
+                'is_checked_in': self.is_checked_in,
+                'is_checked_out': self.is_checked_out,
                 'django_id': self.id
             }
             
@@ -319,12 +322,10 @@ class Attendance(models.Model):
     @classmethod
     def get_attendance_status_by_time(cls, current_time=None, force_checkout=False, existing_status=None):
         """
-        Determine attendance status based on current time and existing status
+        Determine attendance status based on current time for check-in
         - Before 8:00 AM: Present
         - 8:00 AM to 2:00 PM: Late
-        - After 2:00 PM: Checkout (only if student was present/late) or Day Finished
-        - Force checkout: Override time logic for manual checkout
-        - existing_status: Current attendance status to determine checkout eligibility
+        - After 2:00 PM: Day Finished (no check-ins allowed)
         """
         from datetime import datetime, time
         import logging
@@ -361,35 +362,16 @@ class Attendance(models.Model):
                 logger.error(f"current_time is not a time object: {type(current_time)}")
                 current_time = datetime.now().time()
             
-            # If force checkout is requested, return checkout regardless of time
-            if force_checkout:
-                return 'checkout'
-            
             # Define time thresholds
             morning_cutoff = time(8, 0)    # 8:00 AM
-            checkout_cutoff = time(14, 0)  # 2:00 PM (checkout time starts)
-            day_end = time(14, 0)           # 2:00 PM (midnight) - day finished
+            day_end = time(14, 0)          # 2:00 PM - no more check-ins allowed
             
-            logger.info(f"Comparing current_time {current_time} with morning_cutoff {morning_cutoff}, checkout_cutoff {checkout_cutoff}, and day_end {day_end}")
-            logger.info(f"Existing status: {existing_status}")
+            logger.info(f"Comparing current_time {current_time} with morning_cutoff {morning_cutoff} and day_end {day_end}")
             
             if current_time <= morning_cutoff:
                 return 'present'
-            elif current_time < checkout_cutoff:
+            elif current_time < day_end:
                 return 'late'
-            elif current_time >= checkout_cutoff:
-                # After 2:00 PM - checkout time, but only if student was present/late
-                # Check if it's after midnight (next day)
-                if current_time.hour >= 0 and current_time.hour < 8:  # Between midnight and 8 AM (next day)
-                    return 'day_finished'  # After 2:00 PM - day is finished
-                else:
-                    # Between 2 PM and midnight - checkout time
-                    if existing_status in ['present', 'late']:
-                        return 'checkout'
-                    elif existing_status == 'absent':
-                        return 'day_finished'  # Absent students get day finished message
-                    else:
-                        return 'checkout'  # New students can checkout
             else:
                 return 'day_finished'  # After 2:00 PM - day is finished
                 
@@ -405,7 +387,7 @@ class Attendance(models.Model):
     def mark_automatic_attendance(cls, student, confidence=0.95, notes=None, force_checkout=False):
         """
         Automatically mark attendance for a student based on current time
-        Updates existing attendance if student was previously marked as absent
+        Uses separate check-in/check-out fields instead of updating status
         """
         from datetime import date, datetime
         
@@ -418,128 +400,285 @@ class Attendance(models.Model):
             date=today
         ).first()
         
-        # Determine status based on time, force checkout flag, and existing status
-        existing_status = existing_attendance.status if existing_attendance else None
-        status = cls.get_attendance_status_by_time(current_time, force_checkout, existing_status)
+        # Determine status based on time for initial check-in
+        status = cls.get_attendance_status_by_time(current_time, force_checkout, None)
         
-        # If day is finished (after 12:00 AM), prevent attendance marking
+        # If day is finished (after 2:00 PM), handle different scenarios
         if status == 'day_finished' and not force_checkout:
-            return {
-                'success': False,
-                'message': 'The day is finished! You cannot scan your face after 2:00 PM.',
-                'status': 'day_finished',
-                'time': current_time.strftime('%H:%M:%S'),
-                'day_finished': True,
-                'error_type': 'after_hours'
-            }
-        
-        # If day is finished (absent student trying to checkout during checkout hours), prevent attendance marking
-        if status == 'day_finished' and existing_status == 'absent' and not force_checkout:
-            return {
-                'success': False,
-                'message': f'Day finished for {student.name}! You were marked absent today.',
-                'status': 'day_finished',
-                'time': current_time.strftime('%H:%M:%S'),
-                'day_finished': True,
-                'error_type': 'absent_student_checkout',
-                'existing_status': existing_status
-            }
-        
-        if existing_attendance:
-            # If student was previously marked as absent, update to present/late/checkout
-            if existing_attendance.status == 'absent':
-                existing_attendance.status = status
-                existing_attendance.confidence = confidence
-                existing_attendance.notes = notes or f'Automatic attendance - {status.title()}'
-                existing_attendance.timestamp = datetime.now()
-                
-                # Set check-in time for first attendance of the day
-                if not existing_attendance.check_in_time:
-                    existing_attendance.check_in_time = current_time
-                
-                existing_attendance.save()
-                
-                return {
-                    'success': True,
-                    'message': f'Attendance updated for {student.name} from ABSENT to {status.upper()}',
-                    'status': status,
-                    'time': current_time.strftime('%H:%M:%S'),
-                    'attendance_id': existing_attendance.id,
-                    'confidence': confidence,
-                    'updated_from_absent': True
-                }
-            # Allow checkout even if already marked present/late (end of day checkout)
-            elif status == 'checkout' and existing_attendance.status in ['present', 'late']:
-                existing_attendance.status = 'checkout'
-                existing_attendance.confidence = confidence
-                existing_attendance.notes = notes or f'End of day checkout - {status.title()}'
-                existing_attendance.timestamp = datetime.now()
-                
-                # Set check-out time for checkout
-                if not existing_attendance.check_out_time:
-                    existing_attendance.check_out_time = current_time
-                
-                existing_attendance.save()
-                
-                return {
-                    'success': True,
-                    'message': f'Checkout marked for {student.name} (was {existing_attendance.status.upper()})',
-                    'status': status,
-                    'time': current_time.strftime('%H:%M:%S'),
-                    'attendance_id': existing_attendance.id,
-                    'confidence': confidence,
-                    'checkout_update': True
-                }
-            # Allow manual checkout regardless of time or existing status
-            elif notes and 'checkout' in notes.lower():
-                existing_attendance.status = 'checkout'
-                existing_attendance.confidence = confidence
-                existing_attendance.notes = notes or f'Manual checkout - {status.title()}'
-                existing_attendance.timestamp = datetime.now()
-                
-                # Set check-out time for manual checkout
-                if not existing_attendance.check_out_time:
-                    existing_attendance.check_out_time = current_time
-                
-                existing_attendance.save()
-                
-                return {
-                    'success': True,
-                    'message': f'Manual checkout marked for {student.name} (was {existing_attendance.status.upper()})',
-                    'status': 'checkout',
-                    'time': current_time.strftime('%H:%M:%S'),
-                    'attendance_id': existing_attendance.id,
-                    'confidence': confidence,
-                    'manual_checkout': True
-                }
-            else:
-                # Student already has attendance - prevent duplicate
+            # For students without existing attendance - prevent new check-ins
+            if not existing_attendance:
                 return {
                     'success': False,
-                    'message': f'Attendance already marked for {student.name} today',
+                    'message': 'The day is finished! You cannot scan your face after 2:00 PM.',
+                    'status': 'day_finished',
+                    'time': current_time.strftime('%H:%M:%S'),
+                    'day_finished': True,
+                    'error_type': 'after_hours'
+                }
+        
+        if existing_attendance:
+            # Handle students trying to scan after 2 PM
+            if status == 'day_finished' and not force_checkout:
+                # Absent students cannot scan after 2 PM - show day finished error
+                if existing_attendance.status == 'absent':
+                    return {
+                        'success': False,
+                        'message': f'Day finished for {student.name}! You were marked absent today. Cannot mark attendance after 2:00 PM.',
+                        'status': 'day_finished',
+                        'time': current_time.strftime('%H:%M:%S'),
+                        'day_finished': True,
+                        'error_type': 'absent_student_after_hours',
+                        'existing_status': existing_attendance.status
+                    }
+                # Present/late students should automatically checkout when they scan after 2 PM
+                elif existing_attendance.status in ['present', 'late']:
+                    if not existing_attendance.is_checked_out:
+                        # Perform automatic checkout for present/late students after 2 PM
+                        # Ensure check-in status is set if not already
+                        if not existing_attendance.is_checked_in:
+                            existing_attendance.is_checked_in = True
+                        # Set check-in time if not already set (use a default morning time)
+                        if not existing_attendance.check_in_time:
+                            from datetime import time
+                            existing_attendance.check_in_time = time(8, 0)  # Default 8:00 AM
+                        
+                        existing_attendance.is_checked_out = True
+                        existing_attendance.check_out_time = current_time
+                        existing_attendance.confidence = confidence
+                        existing_attendance.notes = notes or f'Automatic check-out at {current_time.strftime("%H:%M:%S")} (day finished)'
+                        existing_attendance.timestamp = datetime.now()
+                        existing_attendance.save()
+                        
+                        return {
+                            'success': True,
+                            'message': f'Checkout successful for {student.name}! Day finished - automatic checkout completed.',
+                            'status': existing_attendance.status,  # Keep original status
+                            'time': current_time.strftime('%H:%M:%S'),
+                            'attendance_id': existing_attendance.id,
+                            'confidence': confidence,
+                            'action': 'check_out',
+                            'check_in_time': existing_attendance.check_in_time.strftime('%H:%M:%S') if existing_attendance.check_in_time else None,
+                            'check_out_time': current_time.strftime('%H:%M:%S')
+                        }
+                    else:
+                        # Already checked out students
+                        return {
+                            'success': False,
+                            'message': f'Day finished for {student.name}! You have already checked out today.',
+                            'status': 'day_finished',
+                            'time': current_time.strftime('%H:%M:%S'),
+                            'day_finished': True,
+                            'error_type': 'already_checked_out_after_hours',
+                            'existing_status': existing_attendance.status,
+                            'check_out_time': existing_attendance.check_out_time.strftime('%H:%M:%S') if existing_attendance.check_out_time else None
+                        }
+            
+            # Handle force checkout request (manual checkout button)
+            if force_checkout:
+                if existing_attendance.is_checked_in and not existing_attendance.is_checked_out:
+                    # Allow check-out if student was present or late
+                    if existing_attendance.status in ['present', 'late']:
+                        # Prevent check-out too close to check-in time (minimum 5 minutes difference)
+                        if existing_attendance.check_in_time:
+                            from datetime import datetime, timedelta
+                            check_in_datetime = datetime.combine(today, existing_attendance.check_in_time)
+                            current_datetime = datetime.combine(today, current_time)
+                            time_difference = current_datetime - check_in_datetime
+                            
+                            if time_difference.total_seconds() < 300:  # 5 minutes = 300 seconds
+                                return {
+                                    'success': False,
+                                    'message': f'Cannot check out so soon after check-in. Please wait at least 5 minutes. Check-in was at {existing_attendance.check_in_time.strftime("%H:%M:%S")}',
+                                    'status': existing_attendance.status,
+                                    'time': current_time.strftime('%H:%M:%S'),
+                                    'check_in_time': existing_attendance.check_in_time.strftime('%H:%M:%S'),
+                                    'error_type': 'checkout_too_soon',
+                                    'minimum_wait_minutes': 5
+                                }
+                        
+                        existing_attendance.is_checked_out = True
+                        existing_attendance.check_out_time = current_time
+                        existing_attendance.confidence = confidence
+                        existing_attendance.notes = notes or f'Manual check-out at {current_time.strftime("%H:%M:%S")}'
+                        existing_attendance.timestamp = datetime.now()
+                        existing_attendance.save()
+                        
+                        return {
+                            'success': True,
+                            'message': f'Manual check-out successful for {student.name}',
+                            'status': existing_attendance.status,  # Keep original status
+                            'time': current_time.strftime('%H:%M:%S'),
+                            'attendance_id': existing_attendance.id,
+                            'confidence': confidence,
+                            'action': 'check_out',
+                            'check_in_time': existing_attendance.check_in_time.strftime('%H:%M:%S') if existing_attendance.check_in_time else None,
+                            'check_out_time': current_time.strftime('%H:%M:%S')
+                        }
+                    else:
+                        # Absent students cannot check out
+                        return {
+                            'success': False,
+                            'message': f'Cannot check out - {student.name} was marked absent today',
+                            'status': existing_attendance.status,
+                            'time': current_time.strftime('%H:%M:%S'),
+                            'error_type': 'absent_student_checkout'
+                        }
+                elif existing_attendance.is_checked_out:
+                    return {
+                        'success': False,
+                        'message': f'Student {student.name} has already checked out today',
+                        'existing_status': existing_attendance.status,
+                        'check_in_time': existing_attendance.check_in_time.strftime('%H:%M:%S') if existing_attendance.check_in_time else None,
+                        'check_out_time': existing_attendance.check_out_time.strftime('%H:%M:%S') if existing_attendance.check_out_time else None,
+                        'duplicate_prevention': True
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'message': f'Student {student.name} must check in first before checking out',
+                        'existing_status': existing_attendance.status,
+                        'error_type': 'checkin_required'
+                    }
+            
+            # Handle check-in (first scan of the day)
+            elif not existing_attendance.is_checked_in:
+                # Update from absent to present/late
+                if existing_attendance.status == 'absent':
+                    existing_attendance.status = status
+                    existing_attendance.is_checked_in = True
+                    existing_attendance.check_in_time = current_time
+                    existing_attendance.confidence = confidence
+                    existing_attendance.notes = notes or f'Check-in: {status.title()}'
+                    existing_attendance.timestamp = datetime.now()
+                    existing_attendance.save()
+                    
+                    return {
+                        'success': True,
+                        'message': f'Check-in successful for {student.name} - {status.upper()}',
+                        'status': status,
+                        'time': current_time.strftime('%H:%M:%S'),
+                        'attendance_id': existing_attendance.id,
+                        'confidence': confidence,
+                        'action': 'check_in',
+                        'updated_from_absent': True
+                    }
+                else:
+                    # Student already has a status other than absent
+                    return {
+                        'success': False,
+                        'message': f'Student {student.name} already has attendance status: {existing_attendance.status}',
+                        'existing_status': existing_attendance.status,
+                        'existing_time': existing_attendance.timestamp.strftime('%H:%M:%S'),
+                        'duplicate_prevention': True
+                    }
+            
+            # Handle duplicate check-in attempt
+            elif existing_attendance.is_checked_in and not existing_attendance.is_checked_out:
+                return {
+                    'success': False,
+                    'message': f'Student {student.name} has already checked in today. Check-in time: {existing_attendance.check_in_time.strftime("%H:%M:%S") if existing_attendance.check_in_time else "Unknown"}',
                     'existing_status': existing_attendance.status,
-                    'existing_time': existing_attendance.timestamp.strftime('%H:%M:%S'),
+                    'check_in_time': existing_attendance.check_in_time.strftime('%H:%M:%S') if existing_attendance.check_in_time else None,
+                    'error_type': 'already_checked_in',
+                    'duplicate_prevention': True
+                }
+            
+            # Handle check-out (second scan of the day - automatic)
+            elif existing_attendance.is_checked_in and not existing_attendance.is_checked_out:
+                # Only allow automatic check-out after 2:00 PM
+                from datetime import time
+                checkout_start_time = time(14, 0)  # 2:00 PM
+                
+                if current_time < checkout_start_time:
+                    return {
+                        'success': False,
+                        'message': f'Check-out is only allowed after 2:00 PM. Current time: {current_time.strftime("%H:%M:%S")}',
+                        'status': existing_attendance.status,
+                        'time': current_time.strftime('%H:%M:%S'),
+                        'check_in_time': existing_attendance.check_in_time.strftime('%H:%M:%S') if existing_attendance.check_in_time else None,
+                        'error_type': 'checkout_too_early',
+                        'checkout_allowed_after': '14:00:00'
+                    }
+                
+                # Allow check-out if student was present or late
+                if existing_attendance.status in ['present', 'late']:
+                    # Prevent check-out too close to check-in time (minimum 5 minutes difference)
+                    if existing_attendance.check_in_time:
+                        from datetime import datetime, timedelta
+                        check_in_datetime = datetime.combine(today, existing_attendance.check_in_time)
+                        current_datetime = datetime.combine(today, current_time)
+                        time_difference = current_datetime - check_in_datetime
+                        
+                        if time_difference.total_seconds() < 300:  # 5 minutes = 300 seconds
+                            return {
+                                'success': False,
+                                'message': f'Cannot check out so soon after check-in. Please wait at least 5 minutes. Check-in was at {existing_attendance.check_in_time.strftime("%H:%M:%S")}',
+                                'status': existing_attendance.status,
+                                'time': current_time.strftime('%H:%M:%S'),
+                                'check_in_time': existing_attendance.check_in_time.strftime('%H:%M:%S'),
+                                'error_type': 'checkout_too_soon',
+                                'minimum_wait_minutes': 5
+                            }
+                    
+                    existing_attendance.is_checked_out = True
+                    existing_attendance.check_out_time = current_time
+                    existing_attendance.confidence = confidence
+                    existing_attendance.notes = notes or f'Check-out at {current_time.strftime("%H:%M:%S")}'
+                    existing_attendance.timestamp = datetime.now()
+                    existing_attendance.save()
+                    
+                    return {
+                        'success': True,
+                        'message': f'Check-out successful for {student.name}',
+                        'status': existing_attendance.status,  # Keep original status
+                        'time': current_time.strftime('%H:%M:%S'),
+                        'attendance_id': existing_attendance.id,
+                        'confidence': confidence,
+                        'action': 'check_out',
+                        'check_in_time': existing_attendance.check_in_time.strftime('%H:%M:%S') if existing_attendance.check_in_time else None,
+                        'check_out_time': current_time.strftime('%H:%M:%S')
+                    }
+                else:
+                    # Absent students cannot check out
+                    return {
+                        'success': False,
+                        'message': f'Cannot check out - {student.name} was marked absent today',
+                        'status': existing_attendance.status,
+                        'time': current_time.strftime('%H:%M:%S'),
+                        'error_type': 'absent_student_checkout'
+                    }
+            
+            # Student already checked in and out
+            else:
+                return {
+                    'success': False,
+                    'message': f'Student {student.name} has already checked in and out today',
+                    'existing_status': existing_attendance.status,
+                    'check_in_time': existing_attendance.check_in_time.strftime('%H:%M:%S') if existing_attendance.check_in_time else None,
+                    'check_out_time': existing_attendance.check_out_time.strftime('%H:%M:%S') if existing_attendance.check_out_time else None,
                     'duplicate_prevention': True
                 }
         
-        # Create new attendance record
+        # Create new attendance record for check-in
         attendance = cls.objects.create(
             student=student,
             date=today,
             status=status,
             confidence=confidence,
-            notes=notes or f'Automatic attendance - {status.title()}',
-            check_in_time=current_time if status in ['present', 'late'] else None,
-            check_out_time=current_time if status == 'checkout' else None
+            notes=notes or f'Check-in: {status.title()}',
+            check_in_time=current_time,
+            is_checked_in=True,
+            is_checked_out=False
         )
         
         return {
             'success': True,
-            'message': f'Attendance marked successfully for {student.name}',
+            'message': f'Check-in successful for {student.name} - {status.upper()}',
             'status': status,
             'time': current_time.strftime('%H:%M:%S'),
             'attendance_id': attendance.id,
-            'confidence': confidence
+            'confidence': confidence,
+            'action': 'check_in'
         }
     
     @classmethod
@@ -577,7 +716,9 @@ class Attendance(models.Model):
                     date=date,
                     status='absent',
                     confidence=0.0,
-                    notes='Default absent status - not scanned today'
+                    notes='Default absent status - not scanned today',
+                    is_checked_in=False,
+                    is_checked_out=False
                 )
                 initialized_count += 1
         
@@ -608,9 +749,9 @@ class Attendance(models.Model):
             'present': attendance_records.filter(status='present').count(),
             'late': attendance_records.filter(status='late').count(),
             'absent': attendance_records.filter(status='absent').count(),
-            'checkout': attendance_records.filter(status='checkout').count(),
-            'day_finished': attendance_records.filter(status='day_finished').count(),
-            'scanned': attendance_records.filter(status__in=['present', 'late', 'checkout']).count(),
+            'checked_in': attendance_records.filter(is_checked_in=True).count(),
+            'checked_out': attendance_records.filter(is_checked_out=True).count(),
+            'scanned': attendance_records.filter(status__in=['present', 'late']).count(),
             'not_scanned': 0
         }
         

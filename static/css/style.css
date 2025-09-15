@@ -48,3 +48,29 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Search box styles */
+#searchBox {
+    transition: all 0.3s ease;
+    border: 2px solid #e9ecef;
+}
+
+#searchBox:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+#searchSpinner {
+    z-index: 10;
+}
+
+/* Search results animation */
+.table tbody tr {
+    transition: all 0.3s ease;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}

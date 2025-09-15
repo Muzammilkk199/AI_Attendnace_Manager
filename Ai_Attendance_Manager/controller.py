@@ -1078,6 +1078,43 @@ def edit_student(request, student_id):
 
     return render(request, "edit_student.html", {"student": student})
 
+@login_required
+def search_students(request):
+    """Search students asynchronously"""
+    try:
+        query = request.GET.get('q', '').strip()
+        
+        if not query:
+            # Return all students if no query
+            student_manager = StudentMongoDBManager()
+            students = list(student_manager.get_all_students())
+        else:
+            # Search students based on query
+            student_manager = StudentMongoDBManager()
+            students = student_manager.search_students(query)
+        
+        # Calculate stats for filtered results
+        total_students = len(students)
+        active_students = sum(1 for s in students if s.get("is_active", False))
+        inactive_students = total_students - active_students
+        
+        return JsonResponse({
+            'success': True,
+            'students': students,
+            'total_students': total_students,
+            'active_students': active_students,
+            'inactive_students': inactive_students,
+            'query': query
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'message': f'Error searching students: {str(e)}'
+        }, status=500)
+
 @csrf_exempt
 def test_mongodb(request):
     """Test MongoDB connection and functionality"""
