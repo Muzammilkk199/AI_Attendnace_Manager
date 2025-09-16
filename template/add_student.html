@@ -554,350 +554,198 @@ body::before {
 <!-- Face Recognition System -->
 <script src="{% static 'js/python-face-detection.js' %}"></script>
 <script>
-class FaceDetectionManager {
-    constructor() {
-        this.video = document.getElementById('webcam');
-        this.canvas = document.getElementById('canvas');
-        this.faceOverlay = document.getElementById('faceOverlay');
-        this.faceGuide = document.getElementById('faceGuide');
-        this.faceStatus = document.getElementById('faceStatus');
-        this.previewImage = document.getElementById('previewImage');
-        this.capturedFacePreview = document.getElementById('capturedFacePreview');
+// Disable automatic attendance recognition on add student page
+window.disableAutoAttendance = true;
+console.log('🎯 ADD STUDENT PAGE: Auto attendance recognition disabled');
+
+// Enhanced duplicate face checking with comprehensive debugging
+async function checkForDuplicateFace(faceEncoding) {
+    try {
+        console.log('🔍 ===== DUPLICATE FACE CHECK STARTED =====');
+        console.log('🔍 Face encoding type:', typeof faceEncoding);
+        console.log('🔍 Face encoding length:', faceEncoding ? faceEncoding.length : 'undefined');
+        console.log('🔍 Face encoding sample (first 5 values):', faceEncoding ? faceEncoding.slice(0, 5) : 'undefined');
+        console.log('🔍 Face encoding sample (last 5 values):', faceEncoding ? faceEncoding.slice(-5) : 'undefined');
         
-        this.stream = null;
-        this.isStreaming = false;
-        this.faceDetected = false;
-        this.capturedFaceData = null;
-        
-        this.init();
-    }
-    
-    init() {
-        this.setupEventListeners();
-        this.setupFormValidation();
-        this.updateSubmitButton(); // Initialize button state
-    }
-    
-    setupEventListeners() {
-        // Webcam controls
-        document.getElementById('startWebcam').addEventListener('click', () => this.startWebcam());
-        document.getElementById('stopWebcam').addEventListener('click', () => this.stopWebcam());
-        document.getElementById('captureFace').addEventListener('click', () => this.captureFace());
-        document.getElementById('retakeFace').addEventListener('click', () => this.retakeFace());
-        
-        // Form submission
-        document.getElementById('studentForm').addEventListener('submit', (e) => this.handleFormSubmit(e));
-    }
-    
-    setupFormValidation() {
-    const studentIdInput = document.getElementById('studentId');
-    
-        // Auto-generate student ID
-    studentIdInput.addEventListener('blur', function() {
-        if (!this.value.trim()) {
-            const firstName = document.getElementById('firstName').value.trim();
-            const lastName = document.getElementById('lastName').value.trim();
-            if (firstName && lastName) {
-                const generatedId = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase() + 
-                                  Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-                this.value = generatedId;
-            }
-        }
-    });
-    
-        // Real-time validation
-        const inputs = document.querySelectorAll('input, textarea, select');
-        inputs.forEach(input => {
-            input.addEventListener('input', () => {
-                input.classList.remove('is-invalid');
-                this.updateSubmitButton();
+        if (!faceEncoding || !Array.isArray(faceEncoding) || faceEncoding.length !== 128) {
+            console.error('❌ INVALID FACE ENCODING:', {
+                isArray: Array.isArray(faceEncoding),
+                length: faceEncoding ? faceEncoding.length : 'undefined',
+                type: typeof faceEncoding
             });
-        });
-    }
-    
-    async startWebcam() {
-        try {
-            this.stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    width: { ideal: 640 },
-                    height: { ideal: 480 },
-                    facingMode: 'user'
-                },
-                audio: false
-            });
-            
-            this.video.srcObject = this.stream;
-            this.isStreaming = true;
-            
-            this.video.addEventListener('loadedmetadata', () => {
-                this.video.play();
-                this.updateButtonStates(true);
-                this.startFaceDetection();
-            });
-            
-            this.updateStatus('Camera started. Position your face in the center.', 'info');
-            
-        } catch (error) {
-            console.error('Error accessing webcam:', error);
-            this.updateStatus('Error accessing camera. Please check permissions.', 'error');
-        }
-    }
-    
-    stopWebcam() {
-        if (this.stream) {
-            this.stream.getTracks().forEach(track => track.stop());
-            this.stream = null;
+            return false;
         }
         
-        this.video.srcObject = null;
-        this.isStreaming = false;
-        this.faceDetected = false;
-        this.updateButtonStates(false);
-        this.updateStatus('Camera stopped.', 'info');
-        this.clearFaceOverlay();
-    }
-    
-    startFaceDetection() {
-        if (!this.isStreaming) return;
-        
-        this.detectFace();
-        requestAnimationFrame(() => this.startFaceDetection());
-    }
-    
-    detectFace() {
-        if (!this.isStreaming) return;
-        
-        // This is a simplified face detection using basic image analysis
-        // In a real implementation, you would use OpenCV.js or similar
-        const canvas = this.canvas;
-        const context = canvas.getContext('2d');
-        
-        canvas.width = this.video.videoWidth;
-        canvas.height = this.video.videoHeight;
-        context.drawImage(this.video, 0, 0);
-        
-        // Simulate face detection (replace with actual face detection)
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const hasFace = this.simulateFaceDetection(imageData);
-        
-        if (hasFace) {
-            this.faceDetected = true;
-            this.faceGuide.classList.add('face-detected');
-            this.updateStatus('Face detected! Click "Capture Face" to register.', 'success');
-            document.getElementById('captureFace').disabled = false;
-            } else {
-            this.faceDetected = false;
-            this.faceGuide.classList.remove('face-detected');
-            this.updateStatus('Position your face in the center circle.', 'warning');
-            document.getElementById('captureFace').disabled = true;
-        }
-    }
-    
-    simulateFaceDetection(imageData) {
-        // Simplified face detection simulation
-        // In real implementation, use OpenCV.js or face-api.js
-        const data = imageData.data;
-        let faceScore = 0;
-        
-        // Simple brightness and contrast analysis
-        for (let i = 0; i < data.length; i += 4) {
-            const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            if (brightness > 50 && brightness < 200) {
-                faceScore++;
-            }
-        }
-        
-        return faceScore > data.length / 20; // Threshold for face detection
-    }
-    
-    captureFace() {
-        if (!this.faceDetected) {
-            this.updateStatus('No face detected. Please position your face properly.', 'error');
-            return;
-        }
-        
-        try {
-            const canvas = this.canvas;
-            const context = canvas.getContext('2d');
-            
-            canvas.width = this.video.videoWidth;
-            canvas.height = this.video.videoHeight;
-            context.drawImage(this.video, 0, 0);
-            
-            // Convert to base64
-            const imageData = canvas.toDataURL('image/jpeg', 0.8);
-            
-            // Simulate face encoding (replace with actual face_recognition)
-            const faceEncoding = this.generateMockFaceEncoding();
-            
-            this.capturedFaceData = {
-                image: imageData,
-                encoding: faceEncoding
-            };
-            
-            // Show preview
-            this.previewImage.src = imageData;
-            this.capturedFacePreview.style.display = 'block';
-            
-            // Update form
-            document.getElementById('faceImage').value = imageData;
-            document.getElementById('faceEncoding').value = JSON.stringify(faceEncoding);
-            
-            this.updateStatus('Face captured successfully! You can now submit the form.', 'success');
-            this.updateSubmitButton();
-            
-        } catch (error) {
-            console.error('Error capturing face:', error);
-            this.updateStatus('Error capturing face. Please try again.', 'error');
-        }
-    }
-    
-    generateMockFaceEncoding() {
-        // Generate a mock face encoding (128-dimensional vector)
-        const encoding = [];
-        for (let i = 0; i < 128; i++) {
-            encoding.push(Math.random() * 2 - 1); // Random values between -1 and 1
-        }
-        return encoding;
-    }
-    
-    retakeFace() {
-        this.capturedFaceData = null;
-        this.capturedFacePreview.style.display = 'none';
-        document.getElementById('faceImage').value = '';
-        document.getElementById('faceEncoding').value = '';
-        this.updateStatus('Please capture your face again.', 'info');
-        this.updateSubmitButton();
-    }
-    
-    updateButtonStates(isStreaming) {
-        document.getElementById('startWebcam').disabled = isStreaming;
-        document.getElementById('stopWebcam').disabled = !isStreaming;
-        document.getElementById('captureFace').disabled = !isStreaming || !this.faceDetected;
-    }
-    
-    updateStatus(message, type) {
-        this.faceStatus.innerHTML = `
-            <div class="face-status ${type}">
-                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
-                ${message}
-            </div>
-        `;
-    }
-    
-    clearFaceOverlay() {
-        this.faceOverlay.innerHTML = '';
-        this.faceGuide.classList.remove('face-detected');
-    }
-    
-    updateSubmitButton() {
-        const requiredFields = ['first_name', 'last_name', 'student_id'];
-        const hasRequiredFields = requiredFields.every(field => {
-            const element = document.querySelector(`[name="${field}"]`);
-            return element && element.value.trim();
+        console.log('🔍 Sending request to duplicate check API...');
+        const response = await fetch('{% url "check_duplicate_face" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                face_encoding: faceEncoding
+            })
         });
         
-        const hasFaceData = this.capturedFaceData !== null;
-        const submitBtn = document.getElementById('submitBtn');
+        console.log('🔍 API Response status:', response.status);
+        console.log('🔍 API Response ok:', response.ok);
         
-        if (submitBtn) {
-            submitBtn.disabled = !(hasRequiredFields && hasFaceData);
-            
-            if (!hasRequiredFields) {
-                submitBtn.title = 'Please fill in all required fields';
-            } else if (!hasFaceData) {
-                submitBtn.title = 'Please capture your face for registration';
-            } else {
-                submitBtn.title = 'Ready to submit';
-            }
-        }
-    }
-    
-    async handleFormSubmit(e) {
-        e.preventDefault();
+        const data = await response.json();
+        console.log('🔍 ===== API RESPONSE =====');
+        console.log('🔍 Full response data:', data);
+        console.log('🔍 Success:', data.success);
+        console.log('🔍 Is duplicate:', data.is_duplicate);
+        console.log('🔍 Message:', data.message);
         
-        // Check if face data is captured
-        const faceImageField = document.getElementById('faceImage');
-        const faceEncodingField = document.getElementById('faceEncoding');
-        
-        if (!faceImageField || !faceImageField.value || !faceEncodingField || !faceEncodingField.value) {
-            this.updateStatus('Please capture your face before submitting.', 'error');
-            this.addErrorLog('Please capture your face before submitting.', 'error');
-            return;
-        }
-        
-        // Show loading state
-        const submitBtn = document.getElementById('submitBtn');
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding Student...';
-        }
-        
-        const formData = new FormData(document.getElementById('studentForm'));
-        
-        // Debug: Log form data
-        console.log('Form data being sent:');
-        for (let [key, value] of formData.entries()) {
-            if (key === 'face_encoding') {
-                console.log(`${key}: ${value.substring(0, 100)}... (${value.length} chars)`);
-            } else {
-                console.log(`${key}: ${value}`);
-            }
-        }
-        
-        try {
-            const response = await fetch('{% url "add_student" %}', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                }
-            });
-            
-            const data = await response.json();
-            console.log('Response from server:', data);
-            
-            if (data.success) {
-                this.updateStatus('Student added successfully!', 'success');
-                this.addErrorLog('Student added successfully! Redirecting...', 'success');
+        if (data.success) {
+            if (data.is_duplicate) {
+                console.log('❌ ===== DUPLICATE DETECTED =====');
+                console.log('❌ Matched student:', data.matched_student);
+                console.log('❌ Similarity percentage:', data.similarity_percentage);
+                console.log('❌ Similarity value:', data.similarity);
                 
-                // Show success message
-                setTimeout(() => {
-                    alert('Student added successfully!');
-                    this.resetForm();
-                    window.location.href = '{% url "home" %}';
-                }, 1000);
+                // Show duplicate face warning
+                showDuplicateFaceWarning(data.matched_student, data.similarity_percentage);
+                return true; // Is duplicate
             } else {
-                this.updateStatus('Error: ' + (data.message || 'Failed to add student'), 'error');
-                this.addErrorLog('Error: ' + (data.message || 'Failed to add student'), 'error');
-                
-                // Reset submit button
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Add Student';
-                }
+                console.log('✅ ===== NO DUPLICATE FOUND =====');
+                console.log('✅ Best similarity:', data.best_similarity);
+                console.log('✅ Best similarity percentage:', data.similarity_percentage);
+                return false; // Not duplicate
             }
-        } catch (error) {
-            console.error('Error:', error);
-            this.updateStatus('An error occurred while adding the student', 'error');
-            this.addErrorLog('An error occurred while adding the student', 'error');
-            
-            // Reset submit button
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-save"></i> Add Student';
-            }
+        } else {
+            console.error('❌ ===== API ERROR =====');
+            console.error('❌ Error message:', data.message);
+            return false; // Allow capture on error
         }
-    }
-    
-    resetForm() {
-        document.getElementById('studentForm').reset();
-        this.capturedFaceData = null;
-        this.capturedFacePreview.style.display = 'none';
-        this.updateSubmitButton();
-        this.stopWebcam();
+        
+    } catch (error) {
+        console.error('❌ ===== EXCEPTION IN DUPLICATE CHECK =====');
+        console.error('❌ Error type:', error.name);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error stack:', error.stack);
+        return false; // Allow capture on error
     }
 }
+
+function showDuplicateFaceWarning(matchedStudent, similarityPercentage) {
+    console.log('🚨 ===== SHOWING DUPLICATE WARNING MODAL =====');
+    console.log('🚨 Matched student:', matchedStudent);
+    console.log('🚨 Similarity percentage:', similarityPercentage);
+    
+    const similarityPercent = Math.round(similarityPercentage || 0);
+    const studentName = matchedStudent?.name || `${matchedStudent?.first_name || ''} ${matchedStudent?.last_name || ''}`.trim() || 'Unknown';
+    const studentId = matchedStudent?.student_id || 'Unknown';
+    
+    console.log('🚨 Formatted student name:', studentName);
+    console.log('🚨 Formatted student ID:', studentId);
+    console.log('🚨 Formatted similarity:', similarityPercent + '%');
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('duplicateFaceModal');
+    if (existingModal) {
+        console.log('🚨 Removing existing modal');
+        existingModal.remove();
+    }
+    
+    // Create warning modal
+    const warningHtml = `
+        <div class="modal fade" id="duplicateFaceModal" tabindex="-1" role="dialog" aria-labelledby="duplicateFaceModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content border-danger">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="duplicateFaceModalLabel">
+                            <i class="fas fa-exclamation-triangle"></i> Duplicate Face Detected
+                        </h5>
+                        <button type="button" class="close text-white" onclick="closeDuplicateModal()" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div class="alert alert-danger" role="alert">
+                            <h4 class="alert-heading">
+                                <i class="fas fa-user-times"></i> Face Already Exists!
+                            </h4>
+                            <p class="mb-3">This face is already registered in the system.</p>
+                            <hr>
+                            <div class="duplicate-student-info">
+                                <h6><strong>Existing Student:</strong></h6>
+                                <p class="mb-1">
+                                    <strong>Name:</strong> ${studentName}
+                                </p>
+                                <p class="mb-1">
+                                    <strong>Student ID:</strong> ${studentId}
+                                </p>
+                                <p class="mb-0">
+                                    <strong>Similarity:</strong> <span class="badge badge-danger">${similarityPercent}%</span>
+                                </p>
+                            </div>
+                            <hr>
+                            <p class="mb-0">
+                                <strong>⚠️ You cannot register the same face twice!</strong><br>
+                                Please use a different person or contact the administrator if this is an error.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeDuplicateModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="retryFaceCapture()">
+                            <i class="fas fa-redo"></i> Try Different Face
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    console.log('🚨 Adding modal to DOM');
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', warningHtml);
+    
+    console.log('🚨 Showing modal');
+    // Show modal using vanilla JavaScript
+    const modal = document.getElementById('duplicateFaceModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        document.body.classList.add('modal-open');
+        
+        // Add backdrop
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade show';
+        backdrop.id = 'modalBackdrop';
+        document.body.appendChild(backdrop);
+        
+        console.log('🚨 Modal displayed successfully');
+    } else {
+        console.error('🚨 Modal element not found!');
+    }
+    
+    // Auto-hide after 15 seconds
+    setTimeout(() => {
+        console.log('🚨 Auto-hiding modal after 15 seconds');
+        const modal = document.getElementById('duplicateFaceModal');
+        const backdrop = document.getElementById('modalBackdrop');
+        
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+            document.body.classList.remove('modal-open');
+        }
+        
+        if (backdrop) {
+            backdrop.remove();
+        }
+    }, 15000);
+    
+    console.log('🚨 ===== DUPLICATE WARNING MODAL SETUP COMPLETE =====');
+}
+
+// The old FaceDetectionManager class has been removed
+// We now use the real PythonFaceDetection system with duplicate checking
 
 // Test MongoDB connection
 async function testMongoDB() {
@@ -969,9 +817,256 @@ function testSubmit() {
     }, 1000);
 }
 
+// SIMPLE AND DIRECT approach: Override face detection to check duplicates immediately
+function setupDuplicateChecking() {
+    console.log('🔍 ADD STUDENT: Setting up SIMPLE duplicate checking...');
+    
+    // Wait for PythonFaceDetection to be initialized
+    setTimeout(() => {
+        if (window.pythonFaceDetection) {
+            console.log('✅ PythonFaceDetection found, setting up duplicate checking...');
+            
+            // Store the original detectFaces method
+            const originalDetectFaces = window.pythonFaceDetection.detectFaces;
+            
+            // Override the detectFaces method
+            window.pythonFaceDetection.detectFaces = async function() {
+                console.log('🔍 ===== FACE DETECTION OVERRIDE STARTED =====');
+                console.log('🔍 Calling original detectFaces method...');
+                
+                // Call the original detectFaces method
+                const result = await originalDetectFaces.call(this);
+                
+                console.log('🔍 Original detectFaces result:', result);
+                console.log('🔍 this.lastFaces:', this.lastFaces);
+                console.log('🔍 this.lastFaces length:', this.lastFaces ? this.lastFaces.length : 'undefined');
+                
+                // Check if we have face data
+                if (this.lastFaces && this.lastFaces.length > 0) {
+                    const face = this.lastFaces[0];
+                    console.log('🔍 Face object:', face);
+                    console.log('🔍 Face encoding type:', typeof face.encoding);
+                    console.log('🔍 Face encoding length:', face.encoding ? face.encoding.length : 'undefined');
+                    console.log('🔍 Face encoding is array:', Array.isArray(face.encoding));
+                    
+                    if (face.encoding && Array.isArray(face.encoding) && face.encoding.length === 128) {
+                        console.log('🔍 ===== VALID FACE ENCODING FOUND =====');
+                        console.log('🔍 Starting duplicate check...');
+                        
+                        // Check for duplicates
+                        const isDuplicate = await checkForDuplicateFace(face.encoding);
+                        console.log('🔍 Duplicate check result:', isDuplicate);
+                        
+                        if (isDuplicate) {
+                            console.log('❌ ===== DUPLICATE FACE DETECTED IN DETECTION =====');
+                            
+                            // Update status to show duplicate warning
+                            this.updateStatus('❌ Duplicate face detected! This face is already registered.', 'error');
+                            this.addErrorLog('❌ Duplicate face detected! This face is already registered.', 'error');
+                            
+                            // Disable capture button
+                            const captureBtn = document.getElementById('captureFace');
+                            if (captureBtn) {
+                                captureBtn.disabled = true;
+                                captureBtn.innerHTML = '<i class="fas fa-ban"></i> Duplicate Face Detected';
+                                console.log('🔍 Capture button disabled');
+                            } else {
+                                console.error('❌ Capture button not found!');
+                            }
+                            
+                            // Clear the face data
+                            this.lastFaces = [];
+                            this.faceData = null;
+                            this.isCaptured = false;
+                            console.log('🔍 Face data cleared');
+                            
+                        } else {
+                            console.log('✅ ===== NO DUPLICATE FOUND =====');
+                            
+                            // Update status to show success
+                            this.updateStatus('✅ Face detected successfully! No duplicates found. Ready to capture.', 'success');
+                            this.addErrorLog('✅ Face detected successfully! No duplicates found.', 'success');
+                            
+                            // Enable capture button
+                            const captureBtn = document.getElementById('captureFace');
+                            if (captureBtn) {
+                                captureBtn.disabled = false;
+                                captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Face';
+                                console.log('🔍 Capture button enabled');
+                            } else {
+                                console.error('❌ Capture button not found!');
+                            }
+                        }
+                    } else {
+                        console.log('⚠️ ===== FACE DETECTED BUT NO VALID ENCODING =====');
+                        console.log('⚠️ Encoding details:', {
+                            exists: !!face.encoding,
+                            isArray: Array.isArray(face.encoding),
+                            length: face.encoding ? face.encoding.length : 'undefined'
+                        });
+                        
+                        // Reset button state
+                        const captureBtn = document.getElementById('captureFace');
+                        if (captureBtn) {
+                            captureBtn.disabled = false;
+                            captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Face';
+                            console.log('🔍 Capture button reset to normal state');
+                        }
+                    }
+                } else {
+                    console.log('⚠️ ===== NO FACE DETECTED =====');
+                    console.log('⚠️ lastFaces:', this.lastFaces);
+                    
+                    // Reset button state
+                    const captureBtn = document.getElementById('captureFace');
+                    if (captureBtn) {
+                        captureBtn.disabled = false;
+                        captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Face';
+                        console.log('🔍 Capture button reset to normal state');
+                    }
+                }
+                
+                console.log('🔍 ===== FACE DETECTION OVERRIDE COMPLETED =====');
+                return result;
+            };
+            
+            console.log('✅ ADD STUDENT: Duplicate checking setup complete');
+        } else {
+            console.error('❌ ADD STUDENT: PythonFaceDetection not found, retrying...');
+            // Retry after a short delay
+            setTimeout(setupDuplicateChecking, 1000);
+        }
+    }, 2000); // Wait 2 seconds for initialization
+    
+    // Backup method: Monitor the face encoding field for changes
+    const faceEncodingField = document.getElementById('faceEncoding');
+    if (faceEncodingField) {
+        console.log('✅ Setting up backup monitoring for face encoding field');
+        
+        let lastValue = '';
+        setInterval(async function() {
+            const currentValue = faceEncodingField.value;
+            if (currentValue !== lastValue && currentValue && currentValue.trim() !== '') {
+                console.log('🔍 ===== BACKUP MONITORING TRIGGERED =====');
+                console.log('🔍 BACKUP: Face encoding field changed, checking for duplicates...');
+                console.log('🔍 BACKUP: Current value length:', currentValue.length);
+                console.log('🔍 BACKUP: Last value length:', lastValue.length);
+                lastValue = currentValue;
+                
+                try {
+                    const faceEncoding = JSON.parse(currentValue);
+                    console.log('🔍 BACKUP: Parsed face encoding type:', typeof faceEncoding);
+                    console.log('🔍 BACKUP: Parsed face encoding length:', faceEncoding ? faceEncoding.length : 'undefined');
+                    console.log('🔍 BACKUP: Is array:', Array.isArray(faceEncoding));
+                    
+                    if (Array.isArray(faceEncoding) && faceEncoding.length === 128) {
+                        console.log('🔍 ===== BACKUP: VALID FACE ENCODING FOUND =====');
+                        console.log('🔍 BACKUP: Starting duplicate check...');
+                        
+                        const isDuplicate = await checkForDuplicateFace(faceEncoding);
+                        console.log('🔍 BACKUP: Duplicate check result:', isDuplicate);
+                        
+                        if (isDuplicate) {
+                            console.log('❌ ===== BACKUP: DUPLICATE DETECTED! =====');
+                            console.log('❌ BACKUP: Clearing form data...');
+                            
+                            // Clear the form data immediately
+                            faceEncodingField.value = '';
+                            const faceImageField = document.getElementById('faceImage');
+                            if (faceImageField) faceImageField.value = '';
+                            
+                            // Hide face data display
+                            const faceDataDisplay = document.getElementById('faceDataDisplay');
+                            if (faceDataDisplay) {
+                                faceDataDisplay.style.display = 'none';
+                            }
+                            
+                            // Disable capture button
+                            const captureBtn = document.getElementById('captureFace');
+                            if (captureBtn) {
+                                captureBtn.disabled = true;
+                                captureBtn.innerHTML = '<i class="fas fa-ban"></i> Duplicate Face Detected';
+                                console.log('🔍 BACKUP: Capture button disabled');
+                            }
+                            
+                            // Reset lastValue to allow new checks
+                            lastValue = '';
+                            console.log('🔍 BACKUP: Form data cleared and lastValue reset');
+                        } else {
+                            console.log('✅ ===== BACKUP: NO DUPLICATE FOUND =====');
+                            console.log('✅ BACKUP: Face is valid');
+                        }
+                    } else {
+                        console.log('⚠️ BACKUP: Invalid face encoding format');
+                        console.log('⚠️ BACKUP: Expected array of length 128, got:', {
+                            isArray: Array.isArray(faceEncoding),
+                            length: faceEncoding ? faceEncoding.length : 'undefined'
+                        });
+                    }
+                } catch (error) {
+                    console.error('❌ BACKUP: Error parsing face encoding:', error);
+                    console.error('❌ BACKUP: Error details:', {
+                        name: error.name,
+                        message: error.message,
+                        stack: error.stack
+                    });
+                }
+            }
+        }, 1000); // Check every second
+        
+        console.log('✅ BACKUP: Face encoding monitoring setup complete');
+    }
+}
+
+function clearFaceData() {
+    console.log('🧹 ADD STUDENT: Clearing face data due to duplicate detection');
+    
+    // Clear form fields
+    const faceImageField = document.getElementById('faceImage');
+    const faceEncodingField = document.getElementById('faceEncoding');
+    if (faceImageField) faceImageField.value = '';
+    if (faceEncodingField) faceEncodingField.value = '';
+    
+    // Hide face data display
+    const faceDataDisplay = document.getElementById('faceDataDisplay');
+    if (faceDataDisplay) {
+        faceDataDisplay.style.display = 'none';
+    }
+    
+    // Clear PythonFaceDetection data if available
+    if (window.pythonFaceDetection) {
+        window.pythonFaceDetection.lastFaces = [];
+        window.pythonFaceDetection.faceData = null;
+        window.pythonFaceDetection.isCaptured = false;
+    }
+}
+
+function resetCaptureButton() {
+    console.log('🔄 ADD STUDENT: Resetting capture button');
+    
+    const captureBtn = document.getElementById('captureFace');
+    if (captureBtn) {
+        captureBtn.disabled = false;
+        captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Face';
+    }
+}
+
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Page loaded, initializing advanced face detection system...');
+    console.log('Page loaded, initializing face detection system...');
+    
+    // Initialize the PythonFaceDetection system
+    if (document.getElementById('faceVideo') && document.getElementById('startDetection')) {
+        console.log('Initializing PythonFaceDetection system for add student...');
+        window.pythonFaceDetection = new PythonFaceDetection();
+        
+        // Set up duplicate checking
+        setupDuplicateChecking();
+        
+        console.log('✅ PythonFaceDetection system initialized for add student');
+    } else {
+        console.error('❌ Required face detection elements not found');
+    }
     
     // Check if buttons exist
     const testMongoBtn = document.getElementById('testMongoBtn');
@@ -1184,6 +1279,78 @@ function clearErrorLogs() {
     }
 }
 
+// Close duplicate modal function
+function closeDuplicateModal() {
+    console.log('🚨 Closing duplicate modal');
+    const modal = document.getElementById('duplicateFaceModal');
+    const backdrop = document.getElementById('modalBackdrop');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        document.body.classList.remove('modal-open');
+    }
+    
+    if (backdrop) {
+        backdrop.remove();
+    }
+    
+    // Restore capture button when modal is closed
+    const captureBtn = document.getElementById('captureFace');
+    if (captureBtn) {
+        captureBtn.disabled = false;
+        captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Face';
+        console.log('🔄 Capture button restored after modal close');
+    }
+    
+    // Update status to show ready for new capture
+    if (window.pythonFaceDetection) {
+        window.pythonFaceDetection.updateStatus('Ready to capture a new face. Please position your face in the center.', 'info');
+    }
+}
+
+// Retry face capture function for duplicate face modal
+function retryFaceCapture() {
+    console.log('🔄 Retrying face capture after duplicate detection');
+    
+    // Close the modal
+    closeDuplicateModal();
+    
+    // Reset face capture using PythonFaceDetection
+    if (window.pythonFaceDetection) {
+        // Clear any captured face data
+        window.pythonFaceDetection.lastFaces = [];
+        window.pythonFaceDetection.faceData = null;
+        window.pythonFaceDetection.isCaptured = false;
+        
+        // Clear form fields
+        const faceImageField = document.getElementById('faceImage');
+        const faceEncodingField = document.getElementById('faceEncoding');
+        if (faceImageField) faceImageField.value = '';
+        if (faceEncodingField) faceEncodingField.value = '';
+        
+        // Hide face data display
+        const faceDataDisplay = document.getElementById('faceDataDisplay');
+        if (faceDataDisplay) {
+            faceDataDisplay.style.display = 'none';
+        }
+        
+        // Update status to show ready for new capture
+        window.pythonFaceDetection.updateStatus('Ready to capture a new face. Please position your face in the center.', 'info');
+        window.pythonFaceDetection.addErrorLog('Please capture a different face for registration.', 'info');
+        
+        // Re-enable capture button
+        const captureBtn = document.getElementById('captureFace');
+        if (captureBtn) {
+            captureBtn.disabled = false;
+            captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Face';
+            console.log('🔄 Capture button restored and enabled');
+        }
+        
+        console.log('🔄 ADD STUDENT: Face capture reset, ready for new capture');
+    }
+}
+
 // Global form submission handler with comprehensive logging
 document.addEventListener('DOMContentLoaded', function() {
     const studentForm = document.getElementById('studentForm');
@@ -1210,6 +1377,44 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.pythonFaceDetection.addErrorLog('Cannot submit: face data missing. Please capture your face first.', 'error');
                 }
                 alert('Please capture your face before submitting.');
+                return;
+            }
+            
+            // BULLETPROOF Final duplicate check before submission
+            try {
+                const faceEncoding = JSON.parse(faceEncodingField.value);
+                console.log('🔍 BULLETPROOF FINAL CHECK - Checking before submission...');
+                
+                const isDuplicate = await checkForDuplicateFace(faceEncoding);
+                if (isDuplicate) {
+                    console.log('❌ BULLETPROOF FINAL CHECK - DUPLICATE DETECTED! BLOCKING SUBMISSION!');
+                    
+                    // Clear all form data
+                    faceEncodingField.value = '';
+                    const faceImageField = document.getElementById('faceImage');
+                    if (faceImageField) faceImageField.value = '';
+                    
+                    // Hide face data display
+                    const faceDataDisplay = document.getElementById('faceDataDisplay');
+                    if (faceDataDisplay) {
+                        faceDataDisplay.style.display = 'none';
+                    }
+                    
+                    // Reset capture button
+                    const captureBtn = document.getElementById('captureFace');
+                    if (captureBtn) {
+                        captureBtn.disabled = false;
+                        captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Face';
+                    }
+                    
+                    return; // BLOCK SUBMISSION
+                } else {
+                    console.log('✅ BULLETPROOF FINAL CHECK - No duplicates found, proceeding with submission');
+                }
+            } catch (error) {
+                console.error('Error in bulletproof final duplicate check:', error);
+                // BLOCK submission if check fails (safer approach)
+                console.log('❌ SUBMISSION BLOCKED due to error in duplicate check');
                 return;
             }
             

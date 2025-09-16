@@ -41,10 +41,6 @@ class PythonFaceDetection {
         this.lastMessage = '';
         this.lastFaces = [];
         this.autoCaptureTimeout = null; // For auto-capture functionality
-        this.faceSessionStartTime = null; // Track when face session started
-        this.maxSessionDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
-        this.sessionWarningTime = 4 * 60 * 1000; // 4 minutes warning
-        this.sessionTimer = null; // Session timeout timer
         
         // Manual override system
         this.manualOverrideActive = false; // Flag to disable auto detection
@@ -64,7 +60,9 @@ class PythonFaceDetection {
         this.lastRequestTime = 0; // Rate limiting for requests
         
         // Automatic attendance settings
-        this.autoAttendanceEnabled = true;
+        // Check if auto attendance is disabled for this page (e.g., add student page)
+        this.autoAttendanceEnabled = !window.disableAutoAttendance;
+        console.log('🎯 AUTO ATTENDANCE SETTING:', this.autoAttendanceEnabled ? 'ENABLED' : 'DISABLED');
         this.attendanceMarked = false;
         this.lastRecognizedStudent = null;
         this.attendanceCooldown = 2000; // 2 seconds cooldown between attendance marks (reduced for testing)
@@ -602,8 +600,6 @@ class PythonFaceDetection {
             this.updateQualityIndicator();
                 this.addErrorLog('No face detected. Center your face within the box.', 'warning');
                 this.disableCapture();
-                // Stop session timer when no face detected
-                this.stopFaceSession();
                 break;
                 
             case 'single_face':
@@ -617,8 +613,6 @@ class PythonFaceDetection {
             this.faceQuality = face.quality_score || 0.8;
             this.updateQualityIndicator();
             
-            // Start session timer for security (prevent proxy attacks)
-            this.startFaceSession();
             
             // Check for stable detection
             if (this.lastFaceCount === 1) {
@@ -1417,71 +1411,6 @@ class PythonFaceDetection {
         }
     }
     
-    startFaceSession() {
-        // Start security session timer to prevent proxy attacks
-        if (!this.faceSessionStartTime) {
-            this.faceSessionStartTime = Date.now();
-            console.log('🔒 SECURITY: Face session started - 5 minute limit active');
-            
-            // Set warning timer (4 minutes)
-            this.sessionTimer = setTimeout(() => {
-                this.showSessionWarning();
-            }, this.sessionWarningTime);
-            
-            // Set session timeout (5 minutes)
-            setTimeout(() => {
-                this.forceSessionEnd();
-            }, this.maxSessionDuration);
-        }
-    }
-    
-    stopFaceSession() {
-        // Stop security session timer
-        if (this.faceSessionStartTime) {
-            const sessionDuration = Date.now() - this.faceSessionStartTime;
-            console.log(`🔒 SECURITY: Face session ended - Duration: ${Math.round(sessionDuration/1000)}s`);
-            
-            this.faceSessionStartTime = null;
-            
-            if (this.sessionTimer) {
-                clearTimeout(this.sessionTimer);
-                this.sessionTimer = null;
-            }
-        }
-    }
-    
-    showSessionWarning() {
-        // Show warning that session will end soon
-        console.log('⚠️ SECURITY WARNING: Face session will end in 1 minute for security');
-        this.addErrorLog('⚠️ SECURITY: Face session will end in 1 minute to prevent proxy attacks', 'warning');
-        this.updateStatus('⚠️ SECURITY WARNING: Session will end in 1 minute', 'warning');
-    }
-    
-    forceSessionEnd() {
-        // Force end session for security (prevent proxy attacks)
-        console.log('🚨 SECURITY: Forcing session end - 5 minute limit reached');
-        this.addErrorLog('🚨 SECURITY: Session ended - 5 minute limit reached to prevent proxy attacks', 'error');
-        this.updateStatus('🚨 SECURITY: Session ended - Please restart for security', 'error');
-        
-        // Stop detection and reset everything
-        this.stopDetection();
-        this.disableCapture();
-        
-        // Show security message
-        alert('🚨 SECURITY ALERT: Session ended after 5 minutes to prevent proxy attacks. Please restart the camera.');
-    }
-    
-    checkSessionValidity() {
-        // Check if current session is still valid
-        if (this.faceSessionStartTime) {
-            const sessionDuration = Date.now() - this.faceSessionStartTime;
-            if (sessionDuration > this.maxSessionDuration) {
-                this.forceSessionEnd();
-                return false;
-            }
-        }
-        return true;
-    }
     
     retryCapture() {
         console.log('🔄 RETRY CAPTURE - Clearing previous data and restarting...');
@@ -1565,8 +1494,6 @@ class PythonFaceDetection {
             this.autoCaptureTimeout = null;
         }
         
-        // Stop session timer for security (prevent proxy attacks)
-        this.stopFaceSession();
         
         this.hideAllFaceBoxes();
         this.hideMultipleFacesWarning();
@@ -2370,6 +2297,13 @@ class PythonFaceDetection {
                 window.updateFormValidation();
             }
         }
+    }
+    
+    checkSessionValidity() {
+        // Simple session validity check - can be enhanced based on your needs
+        // For now, we'll return true to allow capture functionality
+        // You can add more sophisticated session management here if needed
+        return true;
     }
 }
 

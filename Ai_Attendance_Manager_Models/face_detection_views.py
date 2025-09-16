@@ -315,7 +315,7 @@ def recognize_student(request):
                             'message': attendance_result['message'],
                             'day_finished': True,
                             'time': attendance_result.get('time', ''),
-                            'security': 'DAY FINISHED: No scanning allowed after 2:00 PM',
+                            'security': 'DAY FINISHED: No scanning allowed after 12:00 AM' if attendance_result.get('error_type') == 'after_hours' else 'DAY FINISHED: Absent students cannot checkout',
                             'total_students': total_students
                         })
                     else:
@@ -344,11 +344,11 @@ def recognize_student(request):
                             'total_students': total_students
                         })
             else:
-                logger.warning(f" Unregistered face detected - proxy prevention active")
+                logger.warning(f" Unregistered face detected")
                 return JsonResponse({
                     'success': False,
                     'message': 'Face not recognized - unregistered person detected',
-                    'security': 'PROXY PREVENTION: Only registered students can be recognized',
+                    'security': 'Only registered students can be recognized',
                     'details': 'This face does not match any registered student with sufficient confidence',
                     'total_students': total_students
                 })

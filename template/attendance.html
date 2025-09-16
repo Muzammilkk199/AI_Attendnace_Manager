@@ -673,6 +673,9 @@ body::before {
 {% load static %}
 <script src="{% static 'js/python-face-detection.js' %}"></script>
 <script>
+// Ensure automatic attendance recognition is enabled on attendance page
+window.disableAutoAttendance = false;
+console.log('🎯 ATTENDANCE PAGE: Auto attendance recognition enabled');
 // Clear error logs function
 function clearErrorLogs() {
     if (window.pythonFaceDetection) {

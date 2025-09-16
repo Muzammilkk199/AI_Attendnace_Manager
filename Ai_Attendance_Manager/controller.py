@@ -1140,6 +1140,108 @@ def test_mongodb(request):
 
 
 @csrf_exempt
+def check_duplicate_face(request):
+    """Check if a face encoding already exists in the database using cosine similarity"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            face_encoding = data.get('face_encoding')
+            
+            if not face_encoding:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Face encoding is required'
+                })
+            
+            from Ai_Attendance_Manager_Models.mongodb_manager import StudentMongoDBManager
+            import numpy as np
+            
+            # Get all students from MongoDB
+            mongo = StudentMongoDBManager()
+            if not mongo.connected:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Database connection failed'
+                })
+            
+            # Get all students with face encodings
+            students = list(mongo.collection.find({'embedding': {'$exists': True, '$ne': None}}))
+            
+            if not students:
+                return JsonResponse({
+                    'success': True,
+                    'is_duplicate': False,
+                    'message': 'No existing faces to compare against'
+                })
+            
+            # Convert new face encoding to numpy array
+            new_encoding = np.array(face_encoding, dtype=np.float32)
+            
+            # Normalize the new encoding
+            new_encoding = new_encoding / np.linalg.norm(new_encoding)
+            
+            best_similarity = 0
+            best_match = None
+            best_student = None
+            
+            # Compare with each existing face using cosine similarity
+            for student in students:
+                if 'embedding' in student and student['embedding']:
+                    try:
+                        # Convert to numpy array and normalize
+                        known_encoding = np.array(student['embedding'], dtype=np.float32)
+                        known_encoding = known_encoding / np.linalg.norm(known_encoding)
+                        
+                        # Calculate cosine similarity
+                        cosine_similarity = np.dot(new_encoding, known_encoding)
+                        
+                        # Update best match if this is more similar
+                        if cosine_similarity > best_similarity:
+                            best_similarity = cosine_similarity
+                            best_match = cosine_similarity
+                            best_student = {
+                                'student_id': student.get('student_id', ''),
+                                'name': student.get('name', ''),
+                                'first_name': student.get('first_name', ''),
+                                'last_name': student.get('last_name', '')
+                            }
+                            
+                    except Exception as e:
+                        print(f"Error processing student {student.get('student_id', 'unknown')}: {e}")
+                        continue
+            
+            # Check if similarity is above threshold (0.6 = 60% similarity)
+            similarity_threshold = 0.6
+            if best_similarity > similarity_threshold:
+                return JsonResponse({
+                    'success': True,
+                    'is_duplicate': True,
+                    'message': f'Similar face already exists in database',
+                    'matched_student': best_student,
+                    'similarity': float(best_similarity),
+                    'similarity_percentage': float(best_similarity * 100)
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'is_duplicate': False,
+                    'message': 'No similar face found in database',
+                    'best_similarity': float(best_similarity),
+                    'similarity_percentage': float(best_similarity * 100)
+                })
+                
+        except Exception as e:
+            print(f"Error checking duplicate face: {e}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({
+                'success': False,
+                'message': f'Error checking for duplicate face: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+@csrf_exempt
 def test_student_creation(request):
     """Test student creation with mock data"""
     print(f"\n{'='*30} STUDENT CREATION TEST {'='*30}")

@@ -39,6 +39,7 @@ urlpatterns = [
     path("api/students/<str:student_id>/delete/", controller.delete_student, name="delete_student"),
     path('api/test-mongodb/', controller.test_mongodb, name='test_mongodb'),
     path('api/test-student/', controller.test_student_creation, name='test_student_creation'),
+    path('api/check-duplicate-face/', controller.check_duplicate_face, name='check_duplicate_face'),
     
     # Python Face Detection API
     path('api/face-detection/', face_detection_api, name='face_detection_api'),

@@ -128,7 +128,6 @@ class Student(models.Model):
         print(f"🔍 ULTRA-STRICT FIND_BY_FACE METHOD CALLED")
         print(f"📊 Embedding type: {type(embedding)}, length: {len(embedding) if embedding else 0}")
         print(f"📊 ULTRA-STRICT Threshold: {threshold}")
-        print(f"🛡️ PROXY PREVENTION: Active")
         print(f"{'='*60}")
         
         try:
@@ -178,10 +177,10 @@ class Student(models.Model):
                     print("❌ Best match has no Django ID")
             else:
                 print(f"❌ REJECTED: Similarity {similarity_score:.3f} < 0.9298 or confidence {confidence_level} insufficient")
-                print("🛡️ PROXY PREVENTION: Unregistered face detected and rejected")
+                print("Unregistered face detected and rejected")
         else:
             print("🚫 No similar faces found with ultra-strict criteria")
-            print("🛡️ PROXY PREVENTION: No registered face matches found")
+            print("No registered face matches found")
         
         print("🚫 Returning None - unregistered face or insufficient match quality")
         return None
@@ -194,6 +193,7 @@ class Attendance(models.Model):
         ('absent', 'Absent'),
         ('checkout', 'Checkout'),
         ('day_finished', 'Day Finished'),
+        ('day_locked', 'Day Locked'),
     ]
     
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
@@ -287,13 +287,14 @@ class Attendance(models.Model):
         pass
     
     @classmethod
-    def get_attendance_status_by_time(cls, current_time=None, force_checkout=False):
+    def get_attendance_status_by_time(cls, current_time=None, force_checkout=False, existing_status=None):
         """
-        Determine attendance status based on current time
+        Determine attendance status based on current time and existing status
         - Before 8:00 AM: Present
         - 8:00 AM to 2:00 PM: Late
-        - After 2:00 PM: Day Finished (no scanning allowed)
+        - After 2:00 PM: Checkout (only if student was present/late) or Day Finished
         - Force checkout: Override time logic for manual checkout
+        - existing_status: Current attendance status to determine checkout eligibility
         """
         from datetime import datetime, time
         import logging
@@ -336,14 +337,29 @@ class Attendance(models.Model):
             
             # Define time thresholds
             morning_cutoff = time(8, 0)    # 8:00 AM
-            checkout_cutoff = time(14, 0)  # 2:00 PM (day finished time)
+            checkout_cutoff = time(14, 0)  # 2:00 PM (checkout time starts)
+            day_end = time(14, 0)           # 2:00 PM (midnight) - day finished
             
-            logger.info(f"Comparing current_time {current_time} with morning_cutoff {morning_cutoff} and checkout_cutoff {checkout_cutoff}")
+            logger.info(f"Comparing current_time {current_time} with morning_cutoff {morning_cutoff}, checkout_cutoff {checkout_cutoff}, and day_end {day_end}")
+            logger.info(f"Existing status: {existing_status}")
             
             if current_time <= morning_cutoff:
                 return 'present'
-            elif current_time <= checkout_cutoff:
+            elif current_time < checkout_cutoff:
                 return 'late'
+            elif current_time >= checkout_cutoff:
+                # After 2:00 PM - checkout time, but only if student was present/late
+                # Check if it's after midnight (next day)
+                if current_time.hour >= 0 and current_time.hour < 8:  # Between midnight and 8 AM (next day)
+                    return 'day_finished'  # After 2:00 PM - day is finished
+                else:
+                    # Between 2 PM and midnight - checkout time
+                    if existing_status in ['present', 'late']:
+                        return 'checkout'
+                    elif existing_status == 'absent':
+                        return 'day_finished'  # Absent students get day finished message
+                    else:
+                        return 'checkout'  # New students can checkout
             else:
                 return 'day_finished'  # After 2:00 PM - day is finished
                 
@@ -372,10 +388,11 @@ class Attendance(models.Model):
             date=today
         ).first()
         
-        # Determine status based on time and force checkout flag
-        status = cls.get_attendance_status_by_time(current_time, force_checkout)
+        # Determine status based on time, force checkout flag, and existing status
+        existing_status = existing_attendance.status if existing_attendance else None
+        status = cls.get_attendance_status_by_time(current_time, force_checkout, existing_status)
         
-        # If day is finished (after 2:00 PM), prevent attendance marking
+        # If day is finished (after 12:00 AM), prevent attendance marking
         if status == 'day_finished' and not force_checkout:
             return {
                 'success': False,
@@ -384,6 +401,18 @@ class Attendance(models.Model):
                 'time': current_time.strftime('%H:%M:%S'),
                 'day_finished': True,
                 'error_type': 'after_hours'
+            }
+        
+        # If day is finished (absent student trying to checkout during checkout hours), prevent attendance marking
+        if status == 'day_finished' and existing_status == 'absent' and not force_checkout:
+            return {
+                'success': False,
+                'message': f'Day finished for {student.name}! You were marked absent today.',
+                'status': 'day_finished',
+                'time': current_time.strftime('%H:%M:%S'),
+                'day_finished': True,
+                'error_type': 'absent_student_checkout',
+                'existing_status': existing_status
             }
         
         if existing_attendance:
