@@ -9,9 +9,6 @@
 
 **A facial recognition-based attendance management system developed using Django and computer vision technologies.**
 
-*Developed by: [Student Names]*  
-*Course: [Course Name]*  
-*Institution: [University/College Name]*
 
 [📋 Features](#-features) • [🚀 Setup](#-setup) • [💻 Usage](#-usage) • [🏗️ Architecture](#️-architecture) • [📚 Documentation](#-documentation)
 
